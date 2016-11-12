@@ -52,8 +52,9 @@ var NsmURL = "NSM_URL"
 
 // Common errors.
 var (
-	ErrNoNsmURL = errors.New("No " + NsmURL + " environment variable")
-	ErrTimeout  = errors.New("timeout")
+	ErrNilSession = errors.New("Session must be provided")
+	ErrNoNsmURL   = errors.New("No " + NsmURL + " environment variable")
+	ErrTimeout    = errors.New("timeout")
 )
 
 // ClientConfig represents the configuration of an nsm client.
@@ -64,6 +65,7 @@ type ClientConfig struct {
 	Minor        int32
 	PID          int
 	Timeout      time.Duration
+	Session      Session
 }
 
 // Client represents an nsm client.
@@ -77,6 +79,46 @@ type Client struct {
 	// TODO: use types specific to the address being handled
 	openChan  chan *osc.Message
 	replyChan chan *osc.Message
+}
+
+// NewClient creates a new nsm-enabled application.
+func NewClient(config ClientConfig) (*Client, error) {
+	return NewClientG(config, nil)
+}
+
+// NewClientG creates a new nsm-enabled application whose goroutines
+// are part of the provided errgroup.Group.
+func NewClientG(config ClientConfig, g *errgroup.Group) (*Client, error) {
+	// Create the client.
+	c := &Client{
+		ClientConfig: config,
+
+		openChan:  make(chan *osc.Message),
+		replyChan: make(chan *osc.Message),
+	}
+
+	// Get connection.
+	conn, err := c.dialUDP("0.0.0.0:0")
+	if err != nil {
+		return nil, errors.Wrap(err, "could not dial udp")
+	}
+	c.Conn = conn
+
+	// Start the OSC server.
+	if g != nil {
+		c.Group = g
+	} else {
+		var gg errgroup.Group
+		c.Group = &gg
+	}
+	c.Go(c.ServeOSC)
+
+	// Announce app.
+	if err := c.Announce(); err != nil {
+		return nil, errors.Wrap(err, "could not announce app")
+	}
+
+	return c, nil
 }
 
 // Announce announces a new nsm application.
@@ -142,25 +184,24 @@ func (c *Client) announceWait() error {
 		timeout  = time.After(c.Timeout)
 		received = 0
 	)
+ForLoop:
 	for {
 		select {
 		case <-timeout:
 			return ErrTimeout
 		case msg := <-c.openChan:
-			io.WriteString(c.log, "received open\n")
 			if err := c.handleOpen(msg); err != nil {
 				return errors.Wrap(err, "could not handle open message")
 			}
 			received++
 			if received == 2 {
-				break
+				break ForLoop
 			}
 		case msg := <-c.replyChan:
-			io.WriteString(c.log, "received announce\n")
 			c.handleAnnounceReply(msg)
 			received++
 			if received == 2 {
-				break
+				break ForLoop
 			}
 		}
 	}
@@ -261,51 +302,6 @@ func (c *Client) Dispatcher() osc.Dispatcher {
 func (c *Client) Close() error {
 	close(c.replyChan)
 	return c.Conn.Close()
-}
-
-// NewClient creates a new nsm-enabled application.
-func NewClient(config ClientConfig) (*Client, error) {
-	return NewClientG(config, nil)
-}
-
-// NewClientG creates a new nsm-enabled application whose goroutines
-// are part of the provided errgroup.Group.
-func NewClientG(config ClientConfig, g *errgroup.Group) (*Client, error) {
-	w, err := os.Create(path.Join(os.Getenv("HOME"), "."+config.Name))
-	if err != nil {
-		return nil, errors.Wrap(err, "could not open file")
-	}
-	// Create the client.
-	c := &Client{
-		ClientConfig: config,
-
-		log:       w,
-		openChan:  make(chan *osc.Message),
-		replyChan: make(chan *osc.Message),
-	}
-
-	// Get connection.
-	conn, err := c.dialUDP("0.0.0.0:0")
-	if err != nil {
-		return nil, errors.Wrap(err, "could not dial udp")
-	}
-	c.Conn = conn
-
-	// Start the OSC server.
-	if g != nil {
-		c.Group = g
-	} else {
-		var gg errgroup.Group
-		c.Group = &gg
-	}
-	c.Go(c.ServeOSC)
-
-	// Announce app.
-	if err := c.Announce(); err != nil {
-		return nil, errors.Wrap(err, "could not announce app")
-	}
-
-	return c, nil
 }
 
 // dialUDP initializes the connection to non session manager.
