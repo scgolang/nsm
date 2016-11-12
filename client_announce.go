@@ -29,7 +29,7 @@ func (c *Client) announce() error {
 
 // newAnnounceMsg creates a new announce message.
 func (c *Client) newAnnounceMsg() (*osc.Message, error) {
-	msg, err := osc.NewMessage(ServerAnnounce)
+	msg, err := osc.NewMessage(AddressServerAnnounce)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create osc message")
 	}
@@ -83,7 +83,7 @@ func (c *Client) handleAnnounceReply(msg *osc.Message) error {
 	if err != nil {
 		return errors.Wrap(err, "could not read reply address")
 	}
-	if addr != ServerAnnounce {
+	if addr != AddressServerAnnounce {
 		// TODO: put the message back in a queue and keep waiting
 		os.Stderr.Write([]byte("received reply for " + addr))
 		return nil

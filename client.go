@@ -14,10 +14,11 @@ import (
 
 // OSC addresses.
 const (
-	ClientOpen     = "/nsm/client/open"
-	ClientSave     = "/nsm/client/save"
-	Reply          = "/reply"
-	ServerAnnounce = "/nsm/server/announce"
+	AddressClientOpen     = "/nsm/client/open"
+	AddressClientSave     = "/nsm/client/save"
+	AddressError          = "/error"
+	AddressReply          = "/reply"
+	AddressServerAnnounce = "/nsm/server/announce"
 )
 
 // NsmURL is the name of the NSM url environment variable.
@@ -99,6 +100,47 @@ func NewClientG(config ClientConfig, g *errgroup.Group) (*Client, error) {
 	return c, nil
 }
 
+// handle handles the return values from a Session's method.
+// The method must be associated with the provided address,
+// e.g. ClientOpen should be passed after calling a Session's
+// Open method.
+func (c *Client) handle(address, message string, err Error) error {
+	if err != nil {
+		return c.handleError(address, err)
+	}
+	return c.handleReply(address, message)
+}
+
+// handleError handles the reply for a successful client operation.
+func (c *Client) handleError(address string, err Error) error {
+	msg, errr := osc.NewMessage(AddressError)
+	if errr != nil {
+		return errors.Wrap(errr, "could not create error reply for "+address)
+	}
+	if errr := msg.WriteInt32(int32(err.Code())); err != nil {
+		return errors.Wrap(errr, "could not add address to error reply")
+	}
+	if errr := msg.WriteString(err.Error()); err != nil {
+		return errors.Wrap(errr, "could not add message to error reply")
+	}
+	return errors.Wrap(c.Send(msg), "could not send error")
+}
+
+// handleReply handles the reply for a successful client operation.
+func (c *Client) handleReply(address, message string) error {
+	msg, err := osc.NewMessage(AddressReply)
+	if err != nil {
+		return errors.Wrap(err, "could not create reply for "+address)
+	}
+	if err := msg.WriteString(address); err != nil {
+		return errors.Wrap(err, "could not add address to reply")
+	}
+	if err := msg.WriteString(message); err != nil {
+		return errors.Wrap(err, "could not add message to reply")
+	}
+	return errors.Wrap(c.Send(msg), "could not send reply")
+}
+
 // serveOSC listens for incoming messages from Non Session Manager.
 func (c *Client) serveOSC() error {
 	return c.Serve(c.dispatcher())
@@ -107,11 +149,11 @@ func (c *Client) serveOSC() error {
 // dispatcher returns the osc Dispatcher for the nsm client.
 func (c *Client) dispatcher() osc.Dispatcher {
 	return osc.Dispatcher{
-		Reply: func(msg *osc.Message) error {
+		AddressReply: func(msg *osc.Message) error {
 			c.replyChan <- msg
 			return nil
 		},
-		ClientOpen: func(msg *osc.Message) error {
+		AddressClientOpen: func(msg *osc.Message) error {
 			c.openChan <- msg
 			return nil
 		},

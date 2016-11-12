@@ -1,7 +1,6 @@
 package nsm
 
 import (
-	"os"
 	"time"
 
 	"github.com/pkg/errors"
@@ -28,31 +27,21 @@ func (c *Client) handleOpen(msg *osc.Message) error {
 	if err != nil {
 		return errors.Wrap(err, "could not read project path")
 	}
-	if err := os.Mkdir(projectPath, 0755); err != nil {
-		if !os.IsExist(err) {
-			return errors.Wrap(err, "could not open project directory")
-		}
-	}
-	if err := c.sendOpenReply(); err != nil {
-		return errors.Wrap(err, "could not send open reply")
-	}
-	return nil
-}
-
-// sendOpenReply sends a reply to the open message.
-func (c *Client) sendOpenReply() error {
-	msg, err := osc.NewMessage(Reply)
+	displayName, err := msg.ReadString()
 	if err != nil {
-		return errors.Wrap(err, "could not create open reply message")
+		return errors.Wrap(err, "could not read display name")
 	}
-	if err := msg.WriteString(ClientOpen); err != nil {
-		return errors.Wrap(err, "could not write address to open reply message")
+	clientID, err := msg.ReadString()
+	if err != nil {
+		return errors.Wrap(err, "could not read client ID")
 	}
-	if err := msg.WriteString("Client " + c.Name + " started"); err != nil {
-		return errors.Wrap(err, "could not write message to open reply message")
-	}
-	if err := c.Send(msg); err != nil {
-		return errors.Wrap(err, "could not send open reply message")
+	response, nsmerr := c.Session.Open(SessionInfo{
+		Path:        projectPath,
+		DisplayName: displayName,
+		ClientID:    clientID,
+	})
+	if err := c.handle(AddressClientOpen, response, nsmerr); err != nil {
+		return errors.Wrap(err, "could not respond to "+AddressClientOpen)
 	}
 	return nil
 }
