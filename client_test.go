@@ -19,11 +19,12 @@ func (c *ExampleClient) Save() (string, Error) {
 	return "Client has finished saving the session", nil
 }
 
-func ExampleClient(t *testing.T) {
-	_, err := NewClient(ClientConfig{
+func Example_client(t *testing.T) {
+	c, err := NewClient(ClientConfig{
 		Session: &ExampleClient{},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	c.Wait()
 }
