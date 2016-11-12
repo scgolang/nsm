@@ -1,9 +1,7 @@
 package nsm
 
 import (
-	"io"
 	"os"
-	"path"
 	"time"
 
 	"github.com/pkg/errors"
@@ -35,15 +33,6 @@ func (c *Client) handleOpen(msg *osc.Message) error {
 			return errors.Wrap(err, "could not open project directory")
 		}
 	}
-	w, err := os.Create(path.Join(projectPath, c.Name+".log"))
-	if err != nil {
-		return errors.Wrap(err, "could not open log file")
-	}
-	c.log = w
-
-	if _, err := io.WriteString(w, "Started client "+c.Name+"\n"); err != nil {
-		return errors.Wrap(err, "could not write to log")
-	}
 	if err := c.sendOpenReply(); err != nil {
 		return errors.Wrap(err, "could not send open reply")
 	}
@@ -65,6 +54,5 @@ func (c *Client) sendOpenReply() error {
 	if err := c.Send(msg); err != nil {
 		return errors.Wrap(err, "could not send open reply message")
 	}
-	_, err = io.WriteString(c.log, "Sent open reply message\n")
-	return err
+	return nil
 }

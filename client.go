@@ -2,7 +2,6 @@
 package nsm
 
 import (
-	"io"
 	"net"
 	"os"
 	"strings"
@@ -48,8 +47,6 @@ type Client struct {
 	osc.Conn
 	*errgroup.Group
 
-	log io.Writer
-
 	// TODO: use types specific to the address being handled
 	openChan  chan *osc.Message
 	replyChan chan *osc.Message
@@ -57,6 +54,7 @@ type Client struct {
 
 // NewClient creates a new nsm-enabled application.
 // If config.Session is nil then ErrNilSession will be returned.
+// If NSM_URL is not defined in the environment then ErrNoNsmURL will be returned.
 func NewClient(config ClientConfig) (*Client, error) {
 	return NewClientG(config, nil)
 }
@@ -64,6 +62,7 @@ func NewClient(config ClientConfig) (*Client, error) {
 // NewClientG creates a new nsm-enabled application whose goroutines
 // are part of the provided errgroup.Group.
 // If config.Session is nil then ErrNilSession will be returned.
+// If NSM_URL is not defined in the environment then ErrNoNsmURL will be returned.
 func NewClientG(config ClientConfig, g *errgroup.Group) (*Client, error) {
 	if config.Session == nil {
 		return nil, ErrNilSession

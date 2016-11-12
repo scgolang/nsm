@@ -7,9 +7,11 @@ import (
 // Capability is a capability of an nsm client.
 type Capability string
 
+// CapSep is the separator in the capabilities string
+const CapSep = ":"
+
 // Capabilities.
 const (
-	CapSep                 = ":"
 	CapSwitch   Capability = "switch"
 	CapDirty    Capability = "dirty"
 	CapProgress Capability = "progress"
