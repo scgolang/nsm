@@ -85,7 +85,6 @@ func (c *Client) handleAnnounceReply(msg *osc.Message) error {
 	}
 	if addr != AddressServerAnnounce {
 		// TODO: put the message back in a queue and keep waiting
-		os.Stderr.Write([]byte("received reply for " + addr))
 		return nil
 	}
 
@@ -93,12 +92,18 @@ func (c *Client) handleAnnounceReply(msg *osc.Message) error {
 	if err != nil {
 		return errors.Wrap(err, "could not read reply message")
 	}
-	os.Stdout.Write([]byte("reply message: " + serverMsg))
-
 	smName, err := msg.ReadString()
 	if err != nil {
 		return errors.Wrap(err, "could not read session manager name")
 	}
-	os.Stdout.Write([]byte("session manager name: " + smName))
+	capsRaw, err := msg.ReadString()
+	if err != nil {
+		return errors.Wrap(err, "could not read session manager capabilities")
+	}
+	c.Session.Announce(ServerInfo{
+		Message:      serverMsg,
+		Name:         smName,
+		Capabilities: parseCapabilities(capsRaw),
+	})
 	return nil
 }

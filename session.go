@@ -44,15 +44,6 @@ func (e nsmError) Code() Code {
 	return e.code
 }
 
-// ClientStatus represents a status sent to Non Session Manager.
-// Priority should be used to indicate how important it is for
-// the user to see the status message, with 0 being lowest priority
-// and 3 being highest.
-type ClientStatus struct {
-	Priority int
-	Message  string
-}
-
 // Session represents the behavior of a client
 // with respect to the control messages that are
 // sent by Non Session Manager.
@@ -62,6 +53,11 @@ type ClientStatus struct {
 // the capabilities that a given client wishes to implement
 // (e.g. progress reports for long-running open and save operations).
 type Session interface {
+	// Announce will be called when the server has replied
+	// to the client's announce message.
+	// The server sends back information about itself in the reply.
+	Announce(ServerInfo)
+
 	// Open tells the client to open a session.
 	// If a client has not specified CapSwitch in their
 	// capabilities then this method will only be called once.
@@ -165,4 +161,23 @@ func (s SessionInfo) Progress() chan float32 {
 // Message returns nil.
 func (s SessionInfo) Message() chan ClientStatus {
 	return nil
+}
+
+// ClientStatus represents a status sent to Non Session Manager.
+// Priority should be used to indicate how important it is for
+// the user to see the status message, with 0 being lowest priority
+// and 3 being highest.
+type ClientStatus struct {
+	Priority int
+	Message  string
+}
+
+// ServerInfo contains info about Non Session Manager itself.
+// Message is a message that was received in reply to the client's
+// announce message. Name is the name of the session manager.
+// Capabilities describes the capabilities of the session manager.
+type ServerInfo struct {
+	Message      string
+	Name         string
+	Capabilities Capabilities
 }
