@@ -82,13 +82,18 @@ type Client struct {
 }
 
 // NewClient creates a new nsm-enabled application.
+// If config.Session is nil then ErrNilSession will be returned.
 func NewClient(config ClientConfig) (*Client, error) {
 	return NewClientG(config, nil)
 }
 
 // NewClientG creates a new nsm-enabled application whose goroutines
 // are part of the provided errgroup.Group.
+// If config.Session is nil then ErrNilSession will be returned.
 func NewClientG(config ClientConfig, g *errgroup.Group) (*Client, error) {
+	if config.Session == nil {
+		return nil, ErrNilSession
+	}
 	// Create the client.
 	c := &Client{
 		ClientConfig: config,

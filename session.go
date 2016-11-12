@@ -131,3 +131,39 @@ type Session interface {
 	// to send status updates to Non Session Manager.
 	Message() chan ClientStatus
 }
+
+// BaseSession is a type that helps clients avoid writing
+// boilerplate code. It implements the optional methods of
+// the Session interface and returns the values that are expected for
+// clients that don't implement the capability associated with
+// the method (e.g. returns nil from the Progress method).
+type BaseSession struct {
+}
+
+// SessionIsLoaded is a no-op.
+func (bs BaseSession) SessionIsLoaded() {
+}
+
+// ShowGUI is a no-op.
+func (bs BaseSession) ShowGUI(show bool) {
+}
+
+// Dirty returns nil.
+func (bs BaseSession) Dirty() chan bool {
+	return nil
+}
+
+// GUIShowing returns nil.
+func (bs BaseSession) GUIShowing() chan bool {
+	return nil
+}
+
+// Progress returns nil.
+func (bs BaseSession) Progress() chan float32 {
+	return nil
+}
+
+// Message returns nil.
+func (bs BaseSession) Message() chan ClientStatus {
+	return nil
+}
