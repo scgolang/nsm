@@ -56,6 +56,7 @@ type Session interface {
 	// Announce will be called when the server has replied
 	// to the client's announce message.
 	// The server sends back information about itself in the reply.
+	// This method is optional if your Session implementation embeds SessionInfo.
 	Announce(ServerInfo)
 
 	// Open tells the client to open a session.
@@ -112,7 +113,12 @@ type Session interface {
 // you can easily avoid writing boilerplate no-op methods
 // for capabilities you do not wish to implement.
 type SessionInfo struct {
-	// Path is the path where a client can store
+	// Server provides information about the server.
+	// This information is obtained from the server's response
+	// to the client's announcement message.
+	Server ServerInfo
+
+	// ProjectPath is the path where a client can store
 	// their project-specific data.
 	// Path can be a directory tree or a file.
 	// This is up to the client.
@@ -120,7 +126,7 @@ type SessionInfo struct {
 	// the project must be opened immediately.
 	// Otherwise a new project must immediately
 	// be created at Path.
-	Path string
+	ProjectPath string
 
 	// DisplayName is the name of the client as
 	// displayed in Non Session Manager.
@@ -133,6 +139,11 @@ type SessionInfo struct {
 	// For example, clients that create JACK connections
 	// should prepend ClientID to the JACK client name.
 	ClientID string
+}
+
+// Announce handles the server's reply to the client's announcement.
+func (s SessionInfo) Announce(info ServerInfo) {
+	s.Server = info
 }
 
 // SessionIsLoaded is a no-op.
@@ -174,10 +185,10 @@ type ClientStatus struct {
 
 // ServerInfo contains info about Non Session Manager itself.
 // Message is a message that was received in reply to the client's
-// announce message. Name is the name of the session manager.
+// announce message. ServerName is the name of the session manager.
 // Capabilities describes the capabilities of the session manager.
 type ServerInfo struct {
 	Message      string
-	Name         string
+	ServerName   string
 	Capabilities Capabilities
 }

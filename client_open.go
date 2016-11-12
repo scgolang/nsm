@@ -36,7 +36,7 @@ func (c *Client) handleOpen(msg *osc.Message) error {
 		return errors.Wrap(err, "could not read client ID")
 	}
 	response, nsmerr := c.Session.Open(SessionInfo{
-		Path:        projectPath,
+		ProjectPath: projectPath,
 		DisplayName: displayName,
 		ClientID:    clientID,
 	})
