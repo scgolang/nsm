@@ -44,32 +44,6 @@ func (e nsmError) Code() Code {
 	return e.code
 }
 
-// MsgOpen contains the data a client receives
-// in an Open client control message.
-type MsgOpen struct {
-	// Path is the path where a client can store
-	// their project-specific data.
-	// Path can be a directory tree or a file.
-	// This is up to the client.
-	// If a project exists at the provided path
-	// the project must be opened immediately.
-	// Otherwise a new project must immediately
-	// be created at Path.
-	Path string
-
-	// DisplayName is the name of the client as
-	// displayed in Non Session Manager.
-	DisplayName string
-
-	// ClientID should be used by clients that expect
-	// more than one instance to be part of a single session.
-	// ClientID should be prepended to any names it registers
-	// with subsystems that could be used by other instances.
-	// For example, clients that create JACK connections
-	// should prepend ClientID to the JACK client name.
-	ClientID string
-}
-
 // ClientStatus represents a status sent to Non Session Manager.
 // Priority should be used to indicate how important it is for
 // the user to see the status message, with 0 being lowest priority
@@ -91,7 +65,7 @@ type Session interface {
 	// Open tells the client to open a session.
 	// If a client has not specified CapSwitch in their
 	// capabilities then this method will only be called once.
-	Open(MsgOpen) (string, Error)
+	Open(SessionInfo) (string, Error)
 
 	// This method will only be called after Open has been
 	// called, and may be called any number of times during
@@ -132,38 +106,63 @@ type Session interface {
 	Message() chan ClientStatus
 }
 
-// BaseSession is a type that helps clients avoid writing
-// boilerplate code. It implements the optional methods of
-// the Session interface and returns the values that are expected for
-// clients that don't implement the capability associated with
-// the method (e.g. returns nil from the Progress method).
-type BaseSession struct {
+// SessionInfo contains the data a client receives
+// in an Open client control message.
+// Note that the optional methods from the Session interface
+// are implemented on SessionInfo.
+// This means that if your Session implementation embeds
+// SessionInfo (which is might a good idea anyways because
+// your app should probably cache info about the current session)
+// you can easily avoid writing boilerplate no-op methods
+// for capabilities you do not wish to implement.
+type SessionInfo struct {
+	// Path is the path where a client can store
+	// their project-specific data.
+	// Path can be a directory tree or a file.
+	// This is up to the client.
+	// If a project exists at the provided path
+	// the project must be opened immediately.
+	// Otherwise a new project must immediately
+	// be created at Path.
+	Path string
+
+	// DisplayName is the name of the client as
+	// displayed in Non Session Manager.
+	DisplayName string
+
+	// ClientID should be used by clients that expect
+	// more than one instance to be part of a single session.
+	// ClientID should be prepended to any names it registers
+	// with subsystems that could be used by other instances.
+	// For example, clients that create JACK connections
+	// should prepend ClientID to the JACK client name.
+	ClientID string
 }
 
 // SessionIsLoaded is a no-op.
-func (bs BaseSession) SessionIsLoaded() {
+func (s SessionInfo) SessionIsLoaded() {
 }
 
 // ShowGUI is a no-op.
-func (bs BaseSession) ShowGUI(show bool) {
+func (s SessionInfo) ShowGUI(show bool) {
 }
 
 // Dirty returns nil.
-func (bs BaseSession) Dirty() chan bool {
+func (s SessionInfo) Dirty() chan bool {
 	return nil
 }
 
 // GUIShowing returns nil.
-func (bs BaseSession) GUIShowing() chan bool {
+func (s SessionInfo) GUIShowing() chan bool {
 	return nil
 }
 
 // Progress returns nil.
-func (bs BaseSession) Progress() chan float32 {
+func (s SessionInfo) Progress() chan float32 {
 	return nil
 }
 
 // Message returns nil.
-func (bs BaseSession) Message() chan ClientStatus {
+func (s SessionInfo) Message() chan ClientStatus {
 	return nil
 }
