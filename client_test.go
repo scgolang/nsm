@@ -29,5 +29,7 @@ func Example_client() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	c.Wait()
+	if err := c.Wait(); err != nil {
+		log.Fatal(err)
+	}
 }

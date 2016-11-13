@@ -13,27 +13,27 @@ type Session interface {
 	// to the client's announce message.
 	// The server sends back information about itself in the reply.
 	// This method is optional if your Session implementation embeds SessionInfo.
-	Announce(ServerInfo)
+	Announce(ServerInfo) error
 
 	// Open tells the client to open a session.
 	// If a client has not specified CapSwitch in their
 	// capabilities then this method will only be called once.
 	Open(SessionInfo) (string, Error)
 
-	// This method will only be called after Open has been
+	// Save will only be called after Open has been
 	// called, and may be called any number of times during
 	// a session. If the user aborts the session this method
 	// will not be called.
 	Save() (string, Error)
 
-	// This method will be invoked when Non Session Manager
+	// IsLoaded will be invoked when Non Session Manager
 	// has started all the clients for a given session.
-	SessionIsLoaded()
+	IsLoaded() error
 
 	// ShowGUI is an optional method that may be invoked in response
 	// to server commands. If your nsm client has the CapGUI capability
 	// then it should show/hide the GUI based on the bool parameter.
-	ShowGUI(bool)
+	ShowGUI(bool) error
 
 	// Dirty is an optional client to server informational message
 	// that tells Non Session Manager that a client has unsaved changes.
@@ -41,9 +41,10 @@ type Session interface {
 	// this method.
 	Dirty() chan bool
 
-	// If your client has the CapGUI capability then it must
-	// return a channel that can be used to notify Non Session Manager
-	// that the client's GUI is hidden (false) or showing (true).
+	// GUIShowing should return a channel that is used to notify
+	// Non Session Manager that the client's GUI is hidden (false)
+	// or showing (true). If your client has the CapGUI capability
+	// then it must implement this method.
 	GUIShowing() chan bool
 
 	// Progress can be used by clients with the CapProgress capability
@@ -54,9 +55,9 @@ type Session interface {
 	// with 1 indicating completion.
 	Progress() chan float32
 
-	// Message can be used by clients with the CapMessage capability
+	// ClientStatus can be used by clients with the CapMessage capability
 	// to send status updates to Non Session Manager.
-	Message() chan ClientStatus
+	ClientStatus() chan ClientStatus
 }
 
 // SessionInfo contains the data a client receives
@@ -98,16 +99,19 @@ type SessionInfo struct {
 }
 
 // Announce handles the server's reply to the client's announcement.
-func (s SessionInfo) Announce(info ServerInfo) {
+func (s SessionInfo) Announce(info ServerInfo) error {
 	s.Server = info
+	return nil
 }
 
-// SessionIsLoaded is a no-op.
-func (s SessionInfo) SessionIsLoaded() {
+// IsLoaded is a no-op.
+func (s SessionInfo) IsLoaded() error {
+	return nil
 }
 
 // ShowGUI is a no-op.
-func (s SessionInfo) ShowGUI(show bool) {
+func (s SessionInfo) ShowGUI(show bool) error {
+	return nil
 }
 
 // Dirty returns nil.
@@ -125,8 +129,8 @@ func (s SessionInfo) Progress() chan float32 {
 	return nil
 }
 
-// Message returns nil.
-func (s SessionInfo) Message() chan ClientStatus {
+// ClientStatus returns nil.
+func (s SessionInfo) ClientStatus() chan ClientStatus {
 	return nil
 }
 

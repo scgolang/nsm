@@ -2,7 +2,6 @@ package nsm
 
 import (
 	"os"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/scgolang/osc"
@@ -67,14 +66,7 @@ func (c *Client) newAnnounceMsg() (*osc.Message, error) {
 
 // announceWait waits for a reply to the announce message.
 func (c *Client) announceWait() error {
-	timeout := time.After(c.Timeout)
-	select {
-	case <-timeout:
-		return ErrTimeout
-	case msg := <-c.replyChan:
-		c.handleAnnounceReply(msg)
-	}
-	return nil
+	return c.wait(AddressServerAnnounce)
 }
 
 // handleAnnounceReply handles a reply to the announce message.
@@ -100,10 +92,9 @@ func (c *Client) handleAnnounceReply(msg *osc.Message) error {
 	if err != nil {
 		return errors.Wrap(err, "could not read session manager capabilities")
 	}
-	c.Session.Announce(ServerInfo{
+	return c.Session.Announce(ServerInfo{
 		Message:      serverMsg,
 		ServerName:   smName,
 		Capabilities: parseCapabilities(capsRaw),
 	})
-	return nil
 }
