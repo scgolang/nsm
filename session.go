@@ -13,6 +13,8 @@ type Session interface {
 	// to the client's announce message.
 	// The server sends back information about itself in the reply.
 	// This method is optional if your Session implementation embeds SessionInfo.
+	// The SessionInfo implementation automatically assigns the ServerInfo
+	// passed to Announce as the Server field on the your struct.
 	Announce(ServerInfo) error
 
 	// Open tells the client to open a session.
