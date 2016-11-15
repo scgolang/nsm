@@ -72,11 +72,6 @@ type Session interface {
 // you can easily avoid writing boilerplate no-op methods
 // for capabilities you do not wish to implement.
 type SessionInfo struct {
-	// Server provides information about the server.
-	// This information is obtained from the server's response
-	// to the client's announcement message.
-	Server ServerInfo
-
 	// ProjectPath is the path where a client can store
 	// their project-specific data.
 	// Path can be a directory tree or a file.
@@ -102,7 +97,6 @@ type SessionInfo struct {
 
 // Announce handles the server's reply to the client's announcement.
 func (s SessionInfo) Announce(info ServerInfo) error {
-	s.Server = info
 	return nil
 }
 
