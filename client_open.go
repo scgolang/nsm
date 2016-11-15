@@ -23,6 +23,7 @@ func (c *Client) handleOpen(msg *osc.Message) error {
 		ProjectPath: projectPath,
 		DisplayName: displayName,
 		ClientID:    clientID,
+		LocalAddr:   c.LocalAddr(),
 	})
 	if err := c.handle(AddressClientOpen, response, nsmerr); err != nil {
 		return errors.Wrap(err, "could not respond to "+AddressClientOpen)

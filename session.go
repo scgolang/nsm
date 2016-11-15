@@ -1,6 +1,8 @@
 package nsm
 
 import (
+	"net"
+
 	"github.com/scgolang/osc"
 )
 
@@ -106,6 +108,10 @@ type SessionInfo struct {
 	// For example, clients that create JACK connections
 	// should prepend ClientID to the JACK client name.
 	ClientID string
+
+	// LocalAddr provides the local address of the
+	// session's OSC connection.
+	LocalAddr net.Addr
 }
 
 // Announce handles the server's reply to the client's announcement.
