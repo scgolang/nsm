@@ -1,5 +1,9 @@
 package nsm
 
+import (
+	"github.com/scgolang/osc"
+)
+
 // Session represents the behavior of a client
 // with respect to the control messages that are
 // sent by Non Session Manager.
@@ -60,6 +64,15 @@ type Session interface {
 	// ClientStatus can be used by clients with the CapMessage capability
 	// to send status updates to Non Session Manager.
 	ClientStatus() chan ClientStatus
+
+	// Methods is an optional method that should be used by clients
+	// who wish to add their own methods to the OSC server that
+	// is used to listen for messages from Non Session Manager.
+	// Clients who do not need to listen for OSC messages should return nil.
+	// Note that client code should NEVER add a method whose address begins
+	// with /nsm since this could damage the communication between
+	// the Non Session Manager and the client's application.
+	Methods() osc.Dispatcher
 }
 
 // SessionInfo contains the data a client receives
@@ -127,6 +140,14 @@ func (s SessionInfo) Progress() chan float32 {
 
 // ClientStatus returns nil.
 func (s SessionInfo) ClientStatus() chan ClientStatus {
+	return nil
+}
+
+// Methods returns an optional osc dispatcher for adding
+// endpoints to the OSC server that is used to communicate
+// with Non Session Manager.
+// This implementation just returns nil.
+func (s SessionInfo) Methods() osc.Dispatcher {
 	return nil
 }
 

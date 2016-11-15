@@ -32,6 +32,10 @@ const (
 // NsmURL is the name of the NSM url environment variable.
 var NsmURL = "NSM_URL"
 
+// DefaultTimeout is the default timeout for waiting for
+// a reply from Non Session Manager.
+var DefaultTimeout = 5 * time.Second
+
 // Common errors.
 var (
 	ErrNilSession = errors.New("Session must be provided")
@@ -57,7 +61,7 @@ type Client struct {
 	*errgroup.Group
 
 	// TODO: need the ability to requeue replies.
-	replyChan chan *osc.Message
+	ReplyChan chan *osc.Message
 }
 
 // NewClient creates a new nsm-enabled application.
@@ -75,10 +79,13 @@ func NewClientG(config ClientConfig, g *errgroup.Group) (*Client, error) {
 	if config.Session == nil {
 		return nil, ErrNilSession
 	}
+	if config.Timeout == time.Duration(0) {
+		config.Timeout = DefaultTimeout
+	}
 	// Create the client.
 	c := &Client{
 		ClientConfig: config,
-		replyChan:    make(chan *osc.Message),
+		ReplyChan:    make(chan *osc.Message),
 	}
 	if err := c.initialize(g); err != nil {
 		return nil, errors.Wrap(err, "could not initialize client")
@@ -151,7 +158,7 @@ func (c *Client) wait(address string) error {
 	select {
 	case <-timeout:
 		return ErrTimeout
-	case msg := <-c.replyChan:
+	case msg := <-c.ReplyChan:
 		if msg.Address() != address {
 			// TODO: requeue message
 		}
@@ -217,9 +224,9 @@ func (c *Client) serveOSC() error {
 
 // dispatcher returns the osc Dispatcher for the nsm client.
 func (c *Client) dispatcher() osc.Dispatcher {
-	return osc.Dispatcher{
+	d := osc.Dispatcher{
 		AddressReply: func(msg *osc.Message) error {
-			c.replyChan <- msg
+			c.ReplyChan <- msg
 			return nil
 		},
 		AddressClientOpen: func(msg *osc.Message) error {
@@ -239,10 +246,14 @@ func (c *Client) dispatcher() osc.Dispatcher {
 			return c.Session.ShowGUI(false)
 		},
 	}
+	for address, method := range c.Session.Methods() {
+		d[address] = method
+	}
+	return d
 }
 
 // Close closes the nsm client.
 func (c *Client) Close() error {
-	close(c.replyChan)
+	close(c.ReplyChan)
 	return c.Conn.Close()
 }
