@@ -26,7 +26,16 @@ const (
 	AddressClientStatus          = "/nsm/client/message"
 	AddressError                 = "/error"
 	AddressReply                 = "/reply"
+	AddressServerAbort           = "/nsm/server/abort"
+	AddressServerAdd             = "/nsm/server/add"
 	AddressServerAnnounce        = "/nsm/server/announce"
+	AddressServerClose           = "/nsm/server/close"
+	AddressServerDuplicate       = "/nsm/server/duplicate"
+	AddressServerList            = "/nsm/server/list"
+	AddressServerNew             = "/nsm/server/new"
+	AddressServerOpen            = "/nsm/server/open"
+	AddressServerQuit            = "/nsm/server/quit"
+	AddressServerSave            = "/nsm/server/save"
 )
 
 // NsmURL is the name of the NSM url environment variable.
