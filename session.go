@@ -6,6 +6,13 @@ import (
 	"github.com/scgolang/osc"
 )
 
+const (
+	PriorityNever = iota
+	PriorityLow
+	PriorityMed
+	PriorityHigh
+)
+
 // Session represents the behavior of a client
 // with respect to the control messages that are
 // sent by Non Session Manager.
@@ -112,6 +119,9 @@ type SessionInfo struct {
 	// LocalAddr provides the local address of the
 	// session's OSC connection.
 	LocalAddr net.Addr
+
+	// RemoteAddr returns the remote network address.
+	RemoteAddr net.Addr
 }
 
 // Announce handles the server's reply to the client's announcement.
