@@ -35,58 +35,44 @@ func (c *Client) handleClientInfo() error {
 // sendDirty sends an OSC message telling Non Session Manager
 // if the client has unsaved changes.
 func (c *Client) sendDirty(isDirty bool) error {
-	var address string
+	var addr string
 	if isDirty {
-		address = AddressClientIsDirty
+		addr = AddressClientIsDirty
 	} else {
-		address = AddressClientIsClean
+		addr = AddressClientIsClean
 	}
-	msg, err := osc.NewMessage(address)
-	if err != nil {
-		return errors.Wrap(err, "could not create osc message")
-	}
-	return c.Send(msg) // Will get wrapped by caller
+	return c.Send(osc.Message{Address: addr}) // Will get wrapped by caller
 }
 
 // sendGUIShowing sends an OSC message telling Non Session Manager
 // if the client has unsaved changes.
 func (c *Client) sendGUIShowing(isGUIShowing bool) error {
-	var address string
+	var addr string
 	if isGUIShowing {
-		address = AddressClientGUIShowing
+		addr = AddressClientGUIShowing
 	} else {
-		address = AddressClientGUIHidden
+		addr = AddressClientGUIHidden
 	}
-	msg, err := osc.NewMessage(address)
-	if err != nil {
-		return errors.Wrap(err, "could not create osc message")
-	}
-	return c.Send(msg) // Will get wrapped by caller
+	return c.Send(osc.Message{Address: addr}) // Will get wrapped by caller
 }
 
 // sendProgress sends a progress measurement to Non Session Manager.
 func (c *Client) sendProgress(x float32) error {
-	msg, err := osc.NewMessage(AddressClientProgress)
-	if err != nil {
-		return errors.Wrap(err, "could not create osc message")
-	}
-	if err := msg.WriteFloat32(x); err != nil {
-		return errors.Wrap(err, "could not add float32 to progress message")
-	}
-	return c.Send(msg) // Will get wrapped by caller
+	return c.Send(osc.Message{
+		Address: AddressClientProgress,
+		Arguments: osc.Arguments{
+			osc.Float(x),
+		},
+	})
 }
 
 // sendClientStatus sends a progress measurement to Non Session Manager.
 func (c *Client) sendClientStatus(clientStatus ClientStatus) error {
-	msg, err := osc.NewMessage(AddressClientStatus)
-	if err != nil {
-		return errors.Wrap(err, "could not create osc message")
-	}
-	if err := msg.WriteInt32(int32(clientStatus.Priority)); err != nil {
-		return errors.Wrap(err, "could not add int32 to client status message")
-	}
-	if err := msg.WriteString(clientStatus.Message); err != nil {
-		return errors.Wrap(err, "could not add string to client status message")
-	}
-	return c.Send(msg) // Will get wrapped by caller
+	return c.Send(osc.Message{
+		Address: AddressClientStatus,
+		Arguments: osc.Arguments{
+			osc.Int(int32(clientStatus.Priority)),
+			osc.String(clientStatus.Message),
+		},
+	})
 }

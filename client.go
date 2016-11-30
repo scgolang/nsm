@@ -74,7 +74,7 @@ type Client struct {
 	*errgroup.Group
 
 	// TODO: need the ability to requeue replies.
-	ReplyChan chan *osc.Message
+	ReplyChan chan osc.Message
 }
 
 // NewClient creates a new nsm-enabled application.
@@ -98,7 +98,7 @@ func NewClientG(config ClientConfig, g *errgroup.Group) (*Client, error) {
 	// Create the client.
 	c := &Client{
 		ClientConfig: config,
-		ReplyChan:    make(chan *osc.Message),
+		ReplyChan:    make(chan osc.Message),
 	}
 	if err := c.initialize(g); err != nil {
 		return nil, errors.Wrap(err, "could not initialize client")
@@ -172,7 +172,7 @@ func (c *Client) wait(address string) error {
 	case <-timeout:
 		return ErrTimeout
 	case msg := <-c.ReplyChan:
-		if msg.Address() != address {
+		if msg.Address != address {
 			// TODO: requeue message
 		}
 		switch address {
@@ -202,30 +202,24 @@ func (c *Client) handle(address, message string, err Error) error {
 
 // handleError handles the reply for a successful client operation.
 func (c *Client) handleError(address string, err Error) error {
-	msg, errr := osc.NewMessage(AddressError)
-	if errr != nil {
-		return errors.Wrap(errr, "could not create error reply for "+address)
-	}
-	if errr := msg.WriteInt32(int32(err.Code())); err != nil {
-		return errors.Wrap(errr, "could not add address to error reply")
-	}
-	if errr := msg.WriteString(err.Error()); err != nil {
-		return errors.Wrap(errr, "could not add message to error reply")
+	msg := osc.Message{
+		Address: AddressError,
+		Arguments: osc.Arguments{
+			osc.Int(int32(err.Code())),
+			osc.String(err.Error()),
+		},
 	}
 	return errors.Wrap(c.Send(msg), "could not send error")
 }
 
 // handleReply handles the reply for a successful client operation.
 func (c *Client) handleReply(address, message string) error {
-	msg, err := osc.NewMessage(AddressReply)
-	if err != nil {
-		return errors.Wrap(err, "could not create reply for "+address)
-	}
-	if err := msg.WriteString(address); err != nil {
-		return errors.Wrap(err, "could not add address to reply")
-	}
-	if err := msg.WriteString(message); err != nil {
-		return errors.Wrap(err, "could not add message to reply")
+	msg := osc.Message{
+		Address: AddressReply,
+		Arguments: osc.Arguments{
+			osc.String(address),
+			osc.String(message),
+		},
 	}
 	return errors.Wrap(c.Send(msg), "could not send reply")
 }
@@ -238,24 +232,24 @@ func (c *Client) serveOSC() error {
 // dispatcher returns the osc Dispatcher for the nsm client.
 func (c *Client) dispatcher() osc.Dispatcher {
 	d := osc.Dispatcher{
-		AddressReply: func(msg *osc.Message) error {
+		AddressReply: func(msg osc.Message) error {
 			c.ReplyChan <- msg
 			return nil
 		},
-		AddressClientOpen: func(msg *osc.Message) error {
+		AddressClientOpen: func(msg osc.Message) error {
 			return c.handleOpen(msg)
 		},
-		AddressClientSave: func(msg *osc.Message) error {
+		AddressClientSave: func(msg osc.Message) error {
 			response, nsmerr := c.Session.Save()
 			return c.handle(AddressClientSave, response, nsmerr)
 		},
-		AddressClientSessionIsLoaded: func(msg *osc.Message) error {
+		AddressClientSessionIsLoaded: func(msg osc.Message) error {
 			return c.Session.IsLoaded()
 		},
-		AddressClientShowOptionalGUI: func(msg *osc.Message) error {
+		AddressClientShowOptionalGUI: func(msg osc.Message) error {
 			return c.Session.ShowGUI(true)
 		},
-		AddressClientHideOptionalGUI: func(msg *osc.Message) error {
+		AddressClientHideOptionalGUI: func(msg osc.Message) error {
 			return c.Session.ShowGUI(false)
 		},
 	}

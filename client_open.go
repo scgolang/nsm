@@ -6,16 +6,16 @@ import (
 )
 
 // handleOpen handles the open message.
-func (c *Client) handleOpen(msg *osc.Message) error {
-	projectPath, err := msg.ReadString()
+func (c *Client) handleOpen(msg osc.Message) error {
+	projectPath, err := msg.Arguments[0].ReadString()
 	if err != nil {
 		return errors.Wrap(err, "could not read project path")
 	}
-	displayName, err := msg.ReadString()
+	displayName, err := msg.Arguments[1].ReadString()
 	if err != nil {
 		return errors.Wrap(err, "could not read display name")
 	}
-	clientID, err := msg.ReadString()
+	clientID, err := msg.Arguments[2].ReadString()
 	if err != nil {
 		return errors.Wrap(err, "could not read client ID")
 	}

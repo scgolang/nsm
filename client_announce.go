@@ -27,39 +27,21 @@ func (c *Client) announce() error {
 }
 
 // newAnnounceMsg creates a new announce message.
-func (c *Client) newAnnounceMsg() (*osc.Message, error) {
-	msg, err := osc.NewMessage(AddressServerAnnounce)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create osc message")
+func (c *Client) newAnnounceMsg() (osc.Message, error) {
+	msg := osc.Message{
+		Address: AddressServerAnnounce,
+		Arguments: osc.Arguments{
+			osc.String(os.Args[0]),
+			osc.String(c.Capabilities.String()),
+			osc.String(os.Args[0]),
+			osc.Int(c.Major),
+			osc.Int(c.Minor),
+			osc.Int(int32(c.PID)),
+		},
 	}
 	// Write name.
 	if c.Name != "" {
-		if err := msg.WriteString(c.Name); err != nil {
-			return nil, errors.Wrap(err, "could not write name")
-		}
-	} else {
-		if err := msg.WriteString(os.Args[0]); err != nil {
-			return nil, errors.Wrap(err, "could not write name")
-		}
-	}
-	// Write capabilities.
-	if err := msg.WriteString(c.Capabilities.String()); err != nil {
-		return nil, errors.Wrap(err, "could not write capabilities")
-	}
-	// Write executable.
-	if err := msg.WriteString(os.Args[0]); err != nil {
-		return nil, errors.Wrap(err, "could not write executable")
-	}
-	// Write version.
-	if err := msg.WriteInt32(c.Major); err != nil {
-		return nil, errors.Wrap(err, "could not write major")
-	}
-	if err := msg.WriteInt32(c.Minor); err != nil {
-		return nil, errors.Wrap(err, "could not write minor")
-	}
-	// Write PID.
-	if err := msg.WriteInt32(int32(c.PID)); err != nil {
-		return nil, errors.Wrap(err, "could not write pid")
+		msg.Arguments[0] = osc.String(c.Name)
 	}
 	return msg, nil
 }
@@ -70,8 +52,8 @@ func (c *Client) announceWait() error {
 }
 
 // handleAnnounceReply handles a reply to the announce message.
-func (c *Client) handleAnnounceReply(msg *osc.Message) error {
-	addr, err := msg.ReadString()
+func (c *Client) handleAnnounceReply(msg osc.Message) error {
+	addr, err := msg.Arguments[0].ReadString()
 	if err != nil {
 		return errors.Wrap(err, "could not read reply address")
 	}
@@ -80,15 +62,15 @@ func (c *Client) handleAnnounceReply(msg *osc.Message) error {
 		return nil
 	}
 
-	serverMsg, err := msg.ReadString()
+	serverMsg, err := msg.Arguments[1].ReadString()
 	if err != nil {
 		return errors.Wrap(err, "could not read reply message")
 	}
-	smName, err := msg.ReadString()
+	smName, err := msg.Arguments[2].ReadString()
 	if err != nil {
 		return errors.Wrap(err, "could not read session manager name")
 	}
-	capsRaw, err := msg.ReadString()
+	capsRaw, err := msg.Arguments[3].ReadString()
 	if err != nil {
 		return errors.Wrap(err, "could not read session manager capabilities")
 	}
