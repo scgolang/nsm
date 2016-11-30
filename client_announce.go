@@ -77,6 +77,6 @@ func (c *Client) handleAnnounceReply(msg osc.Message) error {
 	return c.Session.Announce(ServerInfo{
 		Message:      serverMsg,
 		ServerName:   smName,
-		Capabilities: parseCapabilities(capsRaw),
+		Capabilities: ParseCapabilities(capsRaw),
 	})
 }
