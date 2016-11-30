@@ -12,10 +12,10 @@ func (c *Client) Announce() error {
 	// Send the announce message.
 	msg, err := c.newAnnounceMsg()
 	if err != nil {
-		return errors.Wrap(err, "could not create announce message")
+		return errors.Wrap(err, "create announce message")
 	}
 	if err := c.Send(msg); err != nil {
-		return errors.Wrap(err, "could not send announce message")
+		return errors.Wrap(err, "send announce message")
 	}
 
 	// Wait for the server's reply.
@@ -55,7 +55,7 @@ func (c *Client) announceWait() error {
 func (c *Client) handleAnnounceReply(msg osc.Message) error {
 	addr, err := msg.Arguments[0].ReadString()
 	if err != nil {
-		return errors.Wrap(err, "could not read reply address")
+		return errors.Wrap(err, "read reply address")
 	}
 	if addr != AddressServerAnnounce {
 		// TODO: put the message back in a queue and keep waiting
@@ -64,15 +64,15 @@ func (c *Client) handleAnnounceReply(msg osc.Message) error {
 
 	serverMsg, err := msg.Arguments[1].ReadString()
 	if err != nil {
-		return errors.Wrap(err, "could not read reply message")
+		return errors.Wrap(err, "read reply message")
 	}
 	smName, err := msg.Arguments[2].ReadString()
 	if err != nil {
-		return errors.Wrap(err, "could not read session manager name")
+		return errors.Wrap(err, "read session manager name")
 	}
 	capsRaw, err := msg.Arguments[3].ReadString()
 	if err != nil {
-		return errors.Wrap(err, "could not read session manager capabilities")
+		return errors.Wrap(err, "read session manager capabilities")
 	}
 	return c.Session.Announce(ServerInfo{
 		Message:      serverMsg,

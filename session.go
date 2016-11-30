@@ -6,6 +6,7 @@ import (
 	"github.com/scgolang/osc"
 )
 
+// Message priority levels.
 const (
 	PriorityNever = iota
 	PriorityLow

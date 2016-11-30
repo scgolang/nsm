@@ -13,23 +13,22 @@ func (c *Client) handleClientInfo() error {
 		select {
 		case isDirty := <-c.Session.Dirty():
 			if err := c.sendDirty(isDirty); err != nil {
-				return errors.Wrap(err, "could not send dirty message")
+				return errors.Wrap(err, "send dirty message")
 			}
 		case isGUIShowing := <-c.Session.GUIShowing():
 			if err := c.sendGUIShowing(isGUIShowing); err != nil {
-				return errors.Wrap(err, "could not send gui-showing message")
+				return errors.Wrap(err, "send gui-showing message")
 			}
 		case x := <-c.Session.Progress():
 			if err := c.sendProgress(x); err != nil {
-				return errors.Wrap(err, "could not send progress message")
+				return errors.Wrap(err, "send progress message")
 			}
 		case clientStatus := <-c.Session.ClientStatus():
 			if err := c.sendClientStatus(clientStatus); err != nil {
-				return errors.Wrap(err, "could not send client status message")
+				return errors.Wrap(err, "send client status message")
 			}
 		}
 	}
-	return nil
 }
 
 // sendDirty sends an OSC message telling Non Session Manager

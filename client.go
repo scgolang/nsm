@@ -106,7 +106,7 @@ func NewClientG(config ClientConfig, g *errgroup.Group) (*Client, error) {
 		ReplyChan:    make(chan osc.Message),
 	}
 	if err := c.Initialize(); err != nil {
-		return nil, errors.Wrap(err, "could not initialize client")
+		return nil, errors.Wrap(err, "initialize client")
 	}
 	return c, nil
 }
@@ -114,16 +114,14 @@ func NewClientG(config ClientConfig, g *errgroup.Group) (*Client, error) {
 // Initialize initializes the client.
 func (c *Client) Initialize() error {
 	// Get connection.
-	if err := c.DialUDP("0.0.0.0:0"); err != nil {
-		return errors.Wrap(err, "could not dial udp")
-	}
+	_ = c.DialUDP("0.0.0.0:0") // Never fails
 
 	// Start the OSC server.
 	c.StartOSC()
 
 	// Announce client.
 	if err := c.Announce(); err != nil {
-		return errors.Wrap(err, "could not announce app")
+		return errors.Wrap(err, "announce app")
 	}
 
 	return nil
@@ -144,11 +142,11 @@ func (c *Client) DialUDP(localAddr string) error {
 	// Get OSC connection.
 	raddr, err := net.ResolveUDPAddr("udp", nsmURL)
 	if err != nil {
-		return errors.Wrap(err, "could not resolve udp remote address")
+		return errors.Wrap(err, "resolve udp remote address")
 	}
 	laddr, err := net.ResolveUDPAddr("udp", localAddr)
 	if err != nil {
-		return errors.Wrap(err, "could not resolve udp listening address")
+		return errors.Wrap(err, "resolve udp listening address")
 	}
 	conn, err := osc.DialUDP("udp", laddr, raddr)
 	if err != nil {
@@ -178,11 +176,11 @@ func (c *Client) wait(address string) error {
 		switch address {
 		case AddressClientOpen:
 			if err := c.handleOpen(msg); err != nil {
-				return errors.Wrap(err, "could not handle open reply")
+				return errors.Wrap(err, "handle open reply")
 			}
 		case AddressServerAnnounce:
 			if err := c.handleAnnounceReply(msg); err != nil {
-				return errors.Wrap(err, "could not handle announce reply")
+				return errors.Wrap(err, "handle announce reply")
 			}
 		}
 	}
@@ -209,7 +207,7 @@ func (c *Client) handleError(address string, err Error) error {
 			osc.String(err.Error()),
 		},
 	}
-	return errors.Wrap(c.Send(msg), "could not send error")
+	return errors.Wrap(c.Send(msg), "send error")
 }
 
 // handleReply handles the reply for a successful client operation.
@@ -221,7 +219,7 @@ func (c *Client) handleReply(address, message string) error {
 			osc.String(message),
 		},
 	}
-	return errors.Wrap(c.Send(msg), "could not send reply")
+	return errors.Wrap(c.Send(msg), "send reply")
 }
 
 // serveOSC listens for incoming messages from Non Session Manager.
