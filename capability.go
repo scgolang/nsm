@@ -21,7 +21,7 @@ const (
 // Server capabilities.
 const (
 	CapServerControl   Capability = "server_control"
-	CapServerBroadcase Capability = "broadcast"
+	CapServerBroadcast Capability = "broadcast"
 )
 
 // Capabilities shared by the client and the server.

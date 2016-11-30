@@ -1,35 +1,30 @@
 package nsm
 
 import (
-	"log"
+	"os"
+	"testing"
 )
 
-// ExampleClient is a simple example of a non session manager client.
-type ExampleClient struct {
-	SessionInfo
+func TestNewClient(t *testing.T) {
+	if _, err := NewClient(ClientConfig{Session: nil}); err == nil {
+		t.Fatal("expected error, got nil")
+	}
 }
 
-// Open opens a session.
-func (c *ExampleClient) Open(info SessionInfo) (string, Error) {
-	c.SessionInfo = info
-	// Do what you need to do to open the session.
-	return "Client has finished opening the session", nil
-}
+func TestClientAnnounce(t *testing.T) {
+	// mockNsmd sets an environment variable to point the client to it's listening address
+	_ = newMockNsmd(t, "127.0.0.1:0")
 
-// Save saves a session.
-func (c *ExampleClient) Save() (string, Error) {
-	// Do what you need to do to save the session.
-	return "Client has finished saving the session", nil
-}
-
-func Example_client() {
 	c, err := NewClient(ClientConfig{
-		Session: &ExampleClient{},
+		Name:         "test_client",
+		Capabilities: Capabilities{"switch", "progress"},
+		Major:        1,
+		Minor:        2,
+		PID:          os.Getpid(),
+		Session:      &mockSession{},
 	})
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
-	if err := c.Wait(); err != nil {
-		log.Fatal(err)
-	}
+	defer c.Close()
 }

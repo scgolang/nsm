@@ -8,7 +8,7 @@ import (
 )
 
 // Announce announces a new nsm application.
-func (c *Client) announce() error {
+func (c *Client) Announce() error {
 	// Send the announce message.
 	msg, err := c.newAnnounceMsg()
 	if err != nil {

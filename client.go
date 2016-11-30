@@ -88,6 +88,7 @@ func NewClient(config ClientConfig) (*Client, error) {
 // are part of the provided errgroup.Group.
 // If config.Session is nil then ErrNilSession will be returned.
 // If NSM_URL is not defined in the environment then ErrNoNsmURL will be returned.
+// TODO: validate config?
 func NewClientG(config ClientConfig, g *errgroup.Group) (*Client, error) {
 	if config.Session == nil {
 		return nil, ErrNilSession
@@ -95,37 +96,41 @@ func NewClientG(config ClientConfig, g *errgroup.Group) (*Client, error) {
 	if config.Timeout == time.Duration(0) {
 		config.Timeout = DefaultTimeout
 	}
+	if g == nil {
+		g = &errgroup.Group{}
+	}
 	// Create the client.
 	c := &Client{
 		ClientConfig: config,
+		Group:        g,
 		ReplyChan:    make(chan osc.Message),
 	}
-	if err := c.initialize(g); err != nil {
+	if err := c.Initialize(); err != nil {
 		return nil, errors.Wrap(err, "could not initialize client")
 	}
 	return c, nil
 }
 
-// initialize initializes the client.
-func (c *Client) initialize(g *errgroup.Group) error {
+// Initialize initializes the client.
+func (c *Client) Initialize() error {
 	// Get connection.
-	if err := c.dialUDP("0.0.0.0:0"); err != nil {
+	if err := c.DialUDP("0.0.0.0:0"); err != nil {
 		return errors.Wrap(err, "could not dial udp")
 	}
 
 	// Start the OSC server.
-	c.startOSC(g)
+	c.StartOSC()
 
 	// Announce client.
-	if err := c.announce(); err != nil {
+	if err := c.Announce(); err != nil {
 		return errors.Wrap(err, "could not announce app")
 	}
 
 	return nil
 }
 
-// dialUDP initializes the connection to non session manager.
-func (c *Client) dialUDP(localAddr string) error {
+// DialUDP initializes the connection to non session manager.
+func (c *Client) DialUDP(localAddr string) error {
 	// Look up NSM_URL environment variable.
 	nsmURL, ok := os.LookupEnv(NsmURL)
 	if !ok {
@@ -154,13 +159,8 @@ func (c *Client) dialUDP(localAddr string) error {
 	return nil
 }
 
-// startOSC starts the osc server.
-func (c *Client) startOSC(g *errgroup.Group) {
-	if g != nil {
-		c.Group = g
-	} else {
-		c.Group = &errgroup.Group{}
-	}
+// StartOSC starts the osc server.
+func (c *Client) StartOSC() {
 	c.Go(c.serveOSC)
 	c.Go(c.handleClientInfo)
 }

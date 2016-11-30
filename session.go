@@ -141,22 +141,30 @@ func (s SessionInfo) ShowGUI(show bool) error {
 
 // Dirty returns nil.
 func (s SessionInfo) Dirty() chan bool {
-	return nil
+	c := make(chan bool)
+	close(c)
+	return c
 }
 
 // GUIShowing returns nil.
 func (s SessionInfo) GUIShowing() chan bool {
-	return nil
+	c := make(chan bool)
+	close(c)
+	return c
 }
 
 // Progress returns nil.
 func (s SessionInfo) Progress() chan float32 {
-	return nil
+	c := make(chan float32)
+	close(c)
+	return c
 }
 
 // ClientStatus returns nil.
 func (s SessionInfo) ClientStatus() chan ClientStatus {
-	return nil
+	c := make(chan ClientStatus)
+	close(c)
+	return c
 }
 
 // Methods returns an optional osc dispatcher for adding
@@ -164,7 +172,7 @@ func (s SessionInfo) ClientStatus() chan ClientStatus {
 // with Non Session Manager.
 // This implementation just returns nil.
 func (s SessionInfo) Methods() osc.Dispatcher {
-	return nil
+	return osc.Dispatcher{}
 }
 
 // ClientStatus represents a status sent to Non Session Manager.
