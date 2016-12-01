@@ -65,6 +65,8 @@ type ClientConfig struct {
 	PID          int
 	Timeout      time.Duration
 	Session      Session
+	ListenAddr   string
+	DialNetwork  string
 }
 
 // Client represents an nsm client.
@@ -114,7 +116,15 @@ func NewClientG(config ClientConfig, g *errgroup.Group) (*Client, error) {
 // Initialize initializes the client.
 func (c *Client) Initialize() error {
 	// Get connection.
-	_ = c.DialUDP("0.0.0.0:0") // Never fails
+	if c.ListenAddr == "" {
+		c.ListenAddr = "0.0.0.0:0"
+	}
+	if c.DialNetwork == "" {
+		c.DialNetwork = "udp"
+	}
+	if err := c.DialUDP(c.ListenAddr); err != nil {
+		return errors.Wrap(err, "dial udp")
+	}
 
 	// Start the OSC server.
 	c.StartOSC()
@@ -140,18 +150,15 @@ func (c *Client) DialUDP(localAddr string) error {
 	nsmURL = strings.TrimSuffix(nsmURL, "/")
 
 	// Get OSC connection.
-	raddr, err := net.ResolveUDPAddr("udp", nsmURL)
+	raddr, err := net.ResolveUDPAddr(c.DialNetwork, nsmURL)
 	if err != nil {
 		return errors.Wrap(err, "resolve udp remote address")
 	}
-	laddr, err := net.ResolveUDPAddr("udp", localAddr)
+	laddr, err := net.ResolveUDPAddr(c.DialNetwork, localAddr)
 	if err != nil {
 		return errors.Wrap(err, "resolve udp listening address")
 	}
-	conn, err := osc.DialUDP("udp", laddr, raddr)
-	if err != nil {
-		return err
-	}
+	conn, _ := osc.DialUDP(c.DialNetwork, laddr, raddr) // Never fails
 	c.Conn = conn
 
 	return nil

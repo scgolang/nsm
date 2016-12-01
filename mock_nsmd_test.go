@@ -3,9 +3,11 @@ package nsm
 import (
 	"net"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/scgolang/osc"
 	"golang.org/x/sync/errgroup"
 )
@@ -71,7 +73,6 @@ func (m *mockNsmd) dispatcher() osc.Dispatcher {
 			// Send reply.
 			return m.SendTo(msg.Sender, osc.Message{
 				Address: AddressReply,
-				Sender:  m.LocalAddr(),
 				Arguments: osc.Arguments{
 					osc.String(AddressServerAnnounce),
 					osc.String("session started"),
@@ -85,5 +86,15 @@ func (m *mockNsmd) dispatcher() osc.Dispatcher {
 
 func (m *mockNsmd) Close() error {
 	close(m.announceChan)
-	return m.Conn.Close()
+	errs := []string{}
+	if err := os.Unsetenv(NsmURL); err != nil {
+		errs = append(errs, err.Error())
+	}
+	if err := m.Conn.Close(); err != nil {
+		errs = append(errs, err.Error())
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return errors.New(strings.Join(errs, " and "))
 }

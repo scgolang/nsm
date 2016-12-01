@@ -53,6 +53,9 @@ func (c *Client) announceWait() error {
 
 // handleAnnounceReply handles a reply to the announce message.
 func (c *Client) handleAnnounceReply(msg osc.Message) error {
+	if got := len(msg.Arguments); got != 4 {
+		return errors.Errorf("expected 4 arguments in announce reply, got %d", got)
+	}
 	addr, err := msg.Arguments[0].ReadString()
 	if err != nil {
 		return errors.Wrap(err, "read reply address")
