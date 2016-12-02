@@ -8,9 +8,10 @@ import (
 // handleClientInfo runs a goroutine that handles the
 // client to server informational messages.
 func (c *Client) handleClientInfo() error {
-	// TODO: use a context.Context to receive cancellation
 	for {
 		select {
+		case <-c.ctx.Done():
+			return errors.Wrap(c.ctx.Err(), "handleClientInfo")
 		case isDirty := <-c.Session.Dirty():
 			if err := c.sendDirty(isDirty); err != nil {
 				return errors.Wrap(err, "send dirty message")

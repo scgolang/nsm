@@ -19,11 +19,11 @@ func (c *Client) Announce() error {
 	}
 
 	// Wait for the server's reply.
-	if err := c.announceWait(); err != nil {
+	reply, err := c.wait(AddressServerAnnounce)
+	if err != nil {
 		return errors.Wrap(err, "waiting for announce reply")
 	}
-
-	return nil
+	return errors.Wrap(c.handleAnnounce(reply), "handle announce reply")
 }
 
 // newAnnounceMsg creates a new announce message.
@@ -46,13 +46,8 @@ func (c *Client) newAnnounceMsg() (osc.Message, error) {
 	return msg, nil
 }
 
-// announceWait waits for a reply to the announce message.
-func (c *Client) announceWait() error {
-	return c.wait(AddressServerAnnounce)
-}
-
-// handleAnnounceReply handles a reply to the announce message.
-func (c *Client) handleAnnounceReply(msg osc.Message) error {
+// handleAnnounce handles a reply to the announce message.
+func (c *Client) handleAnnounce(msg osc.Message) error {
 	if got := len(msg.Arguments); got != 4 {
 		return errors.Errorf("expected 4 arguments in announce reply, got %d", got)
 	}

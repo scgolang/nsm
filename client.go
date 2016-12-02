@@ -1,6 +1,7 @@
 package nsm
 
 import (
+	"context"
 	"net"
 	"os"
 	"strings"
@@ -67,23 +68,24 @@ type ClientConfig struct {
 	Session      Session
 	ListenAddr   string
 	DialNetwork  string
+	NsmURL       string
 }
 
 // Client represents an nsm client.
 type Client struct {
 	ClientConfig
 	osc.Conn
-	*errgroup.Group
+	errgroup.Group
 
-	// TODO: need the ability to requeue replies.
 	ReplyChan chan osc.Message
+	ctx       context.Context
 }
 
 // NewClient creates a new nsm-enabled application.
 // If config.Session is nil then ErrNilSession will be returned.
 // If NSM_URL is not defined in the environment then ErrNoNsmURL will be returned.
 func NewClient(config ClientConfig) (*Client, error) {
-	return NewClientG(config, nil)
+	return NewClientG(config, context.Background())
 }
 
 // NewClientG creates a new nsm-enabled application whose goroutines
@@ -91,21 +93,18 @@ func NewClient(config ClientConfig) (*Client, error) {
 // If config.Session is nil then ErrNilSession will be returned.
 // If NSM_URL is not defined in the environment then ErrNoNsmURL will be returned.
 // TODO: validate config?
-func NewClientG(config ClientConfig, g *errgroup.Group) (*Client, error) {
+func NewClientG(config ClientConfig, ctx context.Context) (*Client, error) {
 	if config.Session == nil {
 		return nil, ErrNilSession
 	}
 	if config.Timeout == time.Duration(0) {
 		config.Timeout = DefaultTimeout
 	}
-	if g == nil {
-		g = &errgroup.Group{}
-	}
 	// Create the client.
 	c := &Client{
 		ClientConfig: config,
-		Group:        g,
 		ReplyChan:    make(chan osc.Message),
+		ctx:          ctx,
 	}
 	if err := c.Initialize(); err != nil {
 		return nil, errors.Wrap(err, "initialize client")
@@ -139,10 +138,17 @@ func (c *Client) Initialize() error {
 
 // DialUDP initializes the connection to non session manager.
 func (c *Client) DialUDP(localAddr string) error {
-	// Look up NSM_URL environment variable.
-	nsmURL, ok := os.LookupEnv(NsmURL)
-	if !ok {
-		return ErrNoNsmURL
+	// Allow client configuration to override the env var.
+	var nsmURL string
+	if c.NsmURL == "" {
+		var ok bool
+		// Look up NSM_URL environment variable.
+		nsmURL, ok = os.LookupEnv(NsmURL)
+		if !ok {
+			return ErrNoNsmURL
+		}
+	} else {
+		nsmURL = c.NsmURL
 	}
 
 	// Why?
@@ -170,28 +176,71 @@ func (c *Client) StartOSC() {
 	c.Go(c.handleClientInfo)
 }
 
+// Close closes the nsm client.
+func (c *Client) Close() error {
+	close(c.ReplyChan)
+	return c.Conn.Close()
+}
+
+// serveOSC listens for incoming messages from Non Session Manager.
+func (c *Client) serveOSC() error {
+	return c.Serve(c.dispatcher())
+}
+
+// dispatcher returns the osc Dispatcher for the nsm client.
+func (c *Client) dispatcher() osc.Dispatcher {
+	d := osc.Dispatcher{
+		AddressReply: func(msg osc.Message) error {
+			println("client local  addr = " + c.LocalAddr().String())
+			println("client remote addr = " + c.RemoteAddr().String())
+			c.ReplyChan <- msg
+			return nil
+		},
+		AddressClientOpen: func(msg osc.Message) error {
+			return c.handleOpen(msg)
+		},
+		AddressClientSave: func(msg osc.Message) error {
+			println("save handler")
+			response, nsmerr := c.Session.Save()
+			println("(dispatcher) sending reply to " + msg.Sender.String())
+			return c.handle(AddressClientSave, response, nsmerr)
+		},
+		AddressClientSessionIsLoaded: func(msg osc.Message) error {
+			return c.Session.IsLoaded()
+		},
+		AddressClientShowOptionalGUI: func(msg osc.Message) error {
+			return c.Session.ShowGUI(true)
+		},
+		AddressClientHideOptionalGUI: func(msg osc.Message) error {
+			return c.Session.ShowGUI(false)
+		},
+	}
+	for address, method := range c.Session.Methods() {
+		d[address] = method
+	}
+	return d
+}
+
 // wait waits for a reply to a message that was sent to address.
-func (c *Client) wait(address string) error {
+func (c *Client) wait(address string) (osc.Message, error) {
 	timeout := time.After(c.Timeout)
 	select {
 	case <-timeout:
-		return ErrTimeout
+		return osc.Message{}, ErrTimeout
 	case msg := <-c.ReplyChan:
-		if msg.Address != address {
-			// TODO: requeue message
+		if len(msg.Arguments) < 1 {
+			return osc.Message{}, errors.New("reply message should contain at least one argument")
 		}
-		switch address {
-		case AddressClientOpen:
-			if err := c.handleOpen(msg); err != nil {
-				return errors.Wrap(err, "handle open reply")
-			}
-		case AddressServerAnnounce:
-			if err := c.handleAnnounceReply(msg); err != nil {
-				return errors.Wrap(err, "handle announce reply")
-			}
+		replyAddr, err := msg.Arguments[0].ReadString()
+		if err != nil {
+			return osc.Message{}, errors.Wrap(err, "first argument of reply message should be a string")
+		}
+		if expected, got := address, replyAddr; expected != got {
+			return osc.Message{}, errors.Errorf("expected %s, got %s", expected, got)
+		} else {
+			return msg, nil
 		}
 	}
-	return nil
 }
 
 // handle handles the return values from a Session's method.
@@ -226,46 +275,11 @@ func (c *Client) handleReply(address, message string) error {
 			osc.String(message),
 		},
 	}
-	return errors.Wrap(c.Send(msg), "send reply")
-}
-
-// serveOSC listens for incoming messages from Non Session Manager.
-func (c *Client) serveOSC() error {
-	return c.Serve(c.dispatcher())
-}
-
-// dispatcher returns the osc Dispatcher for the nsm client.
-func (c *Client) dispatcher() osc.Dispatcher {
-	d := osc.Dispatcher{
-		AddressReply: func(msg osc.Message) error {
-			c.ReplyChan <- msg
-			return nil
-		},
-		AddressClientOpen: func(msg osc.Message) error {
-			return c.handleOpen(msg)
-		},
-		AddressClientSave: func(msg osc.Message) error {
-			response, nsmerr := c.Session.Save()
-			return c.handle(AddressClientSave, response, nsmerr)
-		},
-		AddressClientSessionIsLoaded: func(msg osc.Message) error {
-			return c.Session.IsLoaded()
-		},
-		AddressClientShowOptionalGUI: func(msg osc.Message) error {
-			return c.Session.ShowGUI(true)
-		},
-		AddressClientHideOptionalGUI: func(msg osc.Message) error {
-			return c.Session.ShowGUI(false)
-		},
+	println("(handleReply) sending reply to " + c.RemoteAddr().String())
+	if err := c.Send(msg); err != nil {
+		println("(handleReply) could not send reply " + err.Error())
+		return errors.Wrap(err, "send reply")
 	}
-	for address, method := range c.Session.Methods() {
-		d[address] = method
-	}
-	return d
-}
-
-// Close closes the nsm client.
-func (c *Client) Close() error {
-	close(c.ReplyChan)
-	return c.Conn.Close()
+	println("(handleReply) sent reply")
+	return nil
 }

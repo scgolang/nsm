@@ -7,6 +7,9 @@ import (
 
 // handleOpen handles the open message.
 func (c *Client) handleOpen(msg osc.Message) error {
+	if expected, got := 3, len(msg.Arguments); expected != got {
+		return errors.Errorf("expected %d arguments, got %d", expected, got)
+	}
 	projectPath, err := msg.Arguments[0].ReadString()
 	if err != nil {
 		return errors.Wrap(err, "could not read project path")

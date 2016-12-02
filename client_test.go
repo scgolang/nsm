@@ -14,9 +14,10 @@ func TestNewClient(t *testing.T) {
 
 func TestClientAnnounce(t *testing.T) {
 	// mockNsmd sets an environment variable to point the client to it's listening address
-	_ = newMockNsmd(t, mockNsmdConfig{
+	nsmd := newMockNsmd(t, mockNsmdConfig{
 		listenAddr: "127.0.0.1:0",
 	})
+	defer func() { _ = nsmd.Close() }() // Best effort.
 
 	c, err := NewClient(ClientConfig{
 		Name:         "test_client",
@@ -34,10 +35,11 @@ func TestClientAnnounce(t *testing.T) {
 
 func TestClientAnnounceTimeout(t *testing.T) {
 	// mockNsmd sets an environment variable to point the client to it's listening address
-	_ = newMockNsmd(t, mockNsmdConfig{
+	nsmd := newMockNsmd(t, mockNsmdConfig{
 		listenAddr:    "127.0.0.1:0",
 		announcePause: 100 * time.Millisecond,
 	})
+	defer func() { _ = nsmd.Close() }() // Best effort.
 
 	_, err := NewClient(ClientConfig{
 		Name:         "test_client",
@@ -100,10 +102,11 @@ func TestClientGarbageNsmUrl(t *testing.T) {
 
 func TestClientGarbageListenAddr(t *testing.T) {
 	// mockNsmd sets an environment variable to point the client to it's listening address
-	_ = newMockNsmd(t, mockNsmdConfig{
+	nsmd := newMockNsmd(t, mockNsmdConfig{
 		listenAddr:    "127.0.0.1:0",
 		announcePause: 100 * time.Millisecond,
 	})
+	defer func() { _ = nsmd.Close() }() // Best effort.
 
 	_, err := NewClient(ClientConfig{
 		Name:         "test_client",

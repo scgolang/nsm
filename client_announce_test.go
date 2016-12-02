@@ -3,15 +3,25 @@ package nsm
 import (
 	"os"
 	"testing"
+
+	"github.com/scgolang/osc"
 )
 
-func TestClientAnnounceReplyNoArguments(t *testing.T) {
+func TestClientAnnounceReplyMissingArguments(t *testing.T) {
 	// mockNsmd sets an environment variable to point the client to it's listening address
-	_ = newMockNsmd(t, mockNsmdConfig{
+	// This mock also sends an invalid announce reply (missing arguments)
+	nsmd := newMockNsmd(t, mockNsmdConfig{
 		listenAddr: "127.0.0.1:0",
+		announceReply: osc.Message{
+			Address: AddressReply,
+			Arguments: osc.Arguments{
+				osc.String(AddressServerAnnounce),
+			},
+		},
 	})
+	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	c, err := NewClient(ClientConfig{
+	_, err := NewClient(ClientConfig{
 		Name:         "test_client",
 		Capabilities: Capabilities{"switch", "progress"},
 		Major:        1,
@@ -19,8 +29,10 @@ func TestClientAnnounceReplyNoArguments(t *testing.T) {
 		PID:          os.Getpid(),
 		Session:      &mockSession{},
 	})
-	if err != nil {
-		t.Fatal(err)
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
-	defer func() { _ = c.Close() }() // Best effort.
+	if expected, got := `initialize client: announce app: handle announce reply: expected 4 arguments in announce reply, got 1`, err.Error(); expected != got {
+		t.Fatalf("expected %s, got %s", expected, got)
+	}
 }
