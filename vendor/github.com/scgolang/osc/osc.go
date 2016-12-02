@@ -6,9 +6,6 @@ import (
 )
 
 const (
-	// BundleTag is the tag on an OSC bundle message.
-	BundleTag = "#bundle"
-
 	// MessageChar is the first character of any valid OSC message.
 	MessageChar = '/'
 )
@@ -35,6 +32,7 @@ var (
 // is always a multiple of 4.
 type Packet interface {
 	Bytes() []byte
+	Equal(other Packet) bool
 }
 
 // ToBytes returns an OSC representation of the given string.

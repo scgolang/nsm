@@ -1,13 +1,14 @@
 package osc
 
 import (
+	"bytes"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
 )
 
-func TestTimetag(t *testing.T) {
+func TestFromTime(t *testing.T) {
 	// Test converting to/from time.Time
 	for _, testcase := range []struct {
 		Input    Timetag
@@ -22,13 +23,34 @@ func TestTimetag(t *testing.T) {
 			t.Fatalf("expected %s, got %s", expected, got)
 		}
 	}
+}
 
-	// Test String method
+func TestTimetagBytes(t *testing.T) {
+	for _, testcase := range []struct {
+		Input    Timetag
+		Expected []byte
+	}{
+		{
+			Input:    Timetag(0),
+			Expected: []byte{0, 0, 0, 0, 0, 0, 0, 0},
+		},
+		{
+			Input:    Timetag(10),
+			Expected: []byte{0, 0, 0, 0, 0, 0, 0, 0x0A},
+		},
+	} {
+		if expected, got := testcase.Expected, testcase.Input.Bytes(); !bytes.Equal(expected, got) {
+			t.Fatalf("expected, %q, got %q", expected, got)
+		}
+	}
+}
+
+func TestTimetagString(t *testing.T) {
 	for _, testcase := range []struct {
 		Input    Timetag
 		Expected string
 	}{
-		{Input: Timetag(10), Expected: "a"},
+		{Input: Timetag(10), Expected: "1900-01-01T00:00:00Z"},
 	} {
 		if expected, got := testcase.Expected, testcase.Input.String(); expected != got {
 			t.Fatalf("expected, %s, got %s", expected, got)

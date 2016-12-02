@@ -1,7 +1,6 @@
 package osc
 
 import (
-	"io"
 	"net"
 
 	"github.com/pkg/errors"
@@ -9,10 +8,8 @@ import (
 
 // udpConn includes exactly the methods we need from *net.UDPConn
 type udpConn interface {
-	io.WriteCloser
+	net.Conn
 
-	LocalAddr() net.Addr
-	RemoteAddr() net.Addr
 	ReadFromUDP([]byte) (int, *net.UDPAddr, error)
 	WriteTo([]byte, net.Addr) (int, error)
 }
@@ -20,6 +17,7 @@ type udpConn interface {
 // UDPConn is an OSC connection over UDP.
 type UDPConn struct {
 	udpConn
+	closeChan chan struct{}
 }
 
 // DialUDP creates a new OSC connection over UDP.
@@ -28,7 +26,10 @@ func DialUDP(network string, laddr, raddr *net.UDPAddr) (*UDPConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &UDPConn{udpConn: conn}, nil
+	return &UDPConn{
+		udpConn:   conn,
+		closeChan: make(chan struct{}),
+	}, nil
 }
 
 // ListenUDP creates a new UDP server.
@@ -37,7 +38,10 @@ func ListenUDP(network string, laddr *net.UDPAddr) (*UDPConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &UDPConn{udpConn: conn}, nil
+	return &UDPConn{
+		udpConn:   conn,
+		closeChan: make(chan struct{}),
+	}, nil
 }
 
 // Serve starts dispatching OSC.
@@ -52,13 +56,21 @@ func (conn *UDPConn) Serve(dispatcher Dispatcher) error {
 		}
 	}
 
-	for {
-		if err := conn.serve(dispatcher); err != nil {
-			return err
-		}
-		break
-	}
+	errChan := make(chan error)
 
+	go func() {
+		for {
+			if err := conn.serve(dispatcher); err != nil {
+				errChan <- err
+			}
+		}
+	}()
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-conn.closeChan:
+	}
 	return nil
 }
 
@@ -66,19 +78,27 @@ func (conn *UDPConn) Serve(dispatcher Dispatcher) error {
 func (conn *UDPConn) serve(dispatcher Dispatcher) error {
 	data := make([]byte, readBufSize)
 
-	_, senderAddress, err := conn.ReadFromUDP(data)
+	_, sender, err := conn.ReadFromUDP(data)
 	if err != nil {
 		return err
 	}
 
 	switch data[0] {
-	// TODO: handle bundle
-	case MessageChar:
-		msg, err := ParseMessage(data, senderAddress)
+	case BundleTag[0]:
+		bundle, err := ParseBundle(data, sender)
 		if err != nil {
 			return err
 		}
-		if err := dispatcher.Dispatch(msg); err != nil {
+		if err := dispatcher.Dispatch(bundle); err != nil {
+			return errors.Wrap(err, "dispatch bundle")
+		}
+	case MessageChar:
+		msg, err := ParseMessage(data, sender)
+		if err != nil {
+			return err
+		}
+		if err := dispatcher.Invoke(msg); err != nil {
+			println("############## dispatcher error " + err.Error())
 			return errors.Wrap(err, "dispatch message")
 		}
 	default:
@@ -98,4 +118,10 @@ func (conn *UDPConn) Send(p Packet) error {
 func (conn *UDPConn) SendTo(addr net.Addr, p Packet) error {
 	_, err := conn.WriteTo(p.Bytes(), addr)
 	return err
+}
+
+// Close closes the udp conn.
+func (conn *UDPConn) Close() error {
+	close(conn.closeChan)
+	return conn.udpConn.Close()
 }

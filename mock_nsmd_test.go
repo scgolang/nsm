@@ -65,7 +65,7 @@ func (m *mockNsmd) defaults() {
 		m.announcePause = 10 * time.Millisecond
 	}
 	if m.timeout == time.Duration(0) {
-		m.timeout = 2 * time.Second
+		m.timeout = 4 * time.Second
 	}
 }
 
@@ -109,6 +109,7 @@ func (m *mockNsmd) SessionLoaded() {
 
 // Close closes the mock server.
 func (m *mockNsmd) Close() error {
+	println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ closing mock server")
 	close(m.openChan)
 	close(m.saveChan)
 
@@ -131,20 +132,25 @@ func (m *mockNsmd) serverToClient(cmdName string, replyChan chan osc.Message, ms
 
 	println("send save message from " + m.LocalAddr().String())
 
+	mc := make(chan osc.Message)
+	go func(mc chan osc.Message) {
+		var (
+			timeout = time.After(m.timeout)
+			reply   osc.Message
+		)
+		select {
+		case reply = <-replyChan:
+			mc <- reply
+		case <-timeout:
+			m.t.Fatalf("timeout after %s waiting for %s reply", m.timeout.String(), cmdName)
+		}
+		mc <- osc.Message{}
+	}(mc)
+
 	if err := m.SendTo(m.clientAddr, msg); err != nil {
 		m.t.Fatalf("sending %s message: %s", cmdName, err)
 	}
-	var (
-		timeout = time.After(m.timeout)
-		reply   osc.Message
-	)
-	select {
-	case reply = <-replyChan:
-		return reply
-	case <-timeout:
-		m.t.Fatalf("timeout after %s waiting for %s reply", m.timeout.String(), cmdName)
-	}
-	return osc.Message{}
+	return <-mc
 }
 
 func (m *mockNsmd) startOSC() error {
@@ -165,7 +171,7 @@ func (m *mockNsmd) dispatcher() osc.Dispatcher {
 			return nil
 		},
 		AddressReply: func(msg osc.Message) error {
-			println("got reply")
+			println("got reply at " + m.LocalAddr().String() + " from " + msg.Sender.String())
 			if len(msg.Arguments) < 1 {
 				return errors.New("/reply must provide the address being replied to")
 			}

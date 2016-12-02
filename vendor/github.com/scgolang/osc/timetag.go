@@ -3,7 +3,6 @@ package osc
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -31,8 +30,15 @@ const (
 // significant bit is a special case meaning "immediately."
 type Timetag uint64
 
+// Bytes converts the timetag to a slice of bytes.
+func (tt Timetag) Bytes() []byte {
+	bs := make([]byte, 8)
+	byteOrder.PutUint64(bs, uint64(tt))
+	return bs
+}
+
 func (tt Timetag) String() string {
-	return fmt.Sprintf("%x", uint64(tt))
+	return tt.Time().Format(time.RFC3339)
 }
 
 // Time converts an OSC timetag to a time.Time.
