@@ -13,7 +13,7 @@ func TestClientOpenReplyMissingArguments(t *testing.T) {
 	nsmd := newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	_, err := NewClient(ClientConfig{
+	c, err := NewClient(ClientConfig{
 		Name:         "test_client",
 		Capabilities: Capabilities{"switch", "progress"},
 		Major:        1,
@@ -26,6 +26,7 @@ func TestClientOpenReplyMissingArguments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() { _ = c.Close() }() // Best effort.
 
 	reply := nsmd.OpenSession(osc.Message{
 		Address: AddressClientOpen,

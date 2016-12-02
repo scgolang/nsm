@@ -15,7 +15,7 @@ func TestClientSession(t *testing.T) {
 	)
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	_, err := NewClient(ClientConfig{
+	c, err := NewClient(ClientConfig{
 		Name:         "test_client",
 		Capabilities: Capabilities{"switch", "progress"},
 		Major:        1,
@@ -26,6 +26,7 @@ func TestClientSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() { _ = c.Close() }() // Best effort.
 
 	nsmd.SessionLoaded()
 

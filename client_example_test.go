@@ -29,6 +29,8 @@ func Example_client() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer func() { _ = c.Close() }() // Best effort.
+
 	if err := c.Wait(); err != nil {
 		log.Fatal(err)
 	}

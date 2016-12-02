@@ -109,7 +109,6 @@ func (m *mockNsmd) SessionLoaded() {
 
 // Close closes the mock server.
 func (m *mockNsmd) Close() error {
-	println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ closing mock server")
 	close(m.openChan)
 	close(m.saveChan)
 
@@ -129,8 +128,6 @@ func (m *mockNsmd) Close() error {
 func (m *mockNsmd) serverToClient(cmdName string, replyChan chan osc.Message, msg osc.Message) osc.Message {
 	// Wait for announcement from the client.
 	<-m.announceAcked
-
-	println("send save message from " + m.LocalAddr().String())
 
 	mc := make(chan osc.Message)
 	go func(mc chan osc.Message) {
@@ -171,7 +168,6 @@ func (m *mockNsmd) dispatcher() osc.Dispatcher {
 			return nil
 		},
 		AddressReply: func(msg osc.Message) error {
-			println("got reply at " + m.LocalAddr().String() + " from " + msg.Sender.String())
 			if len(msg.Arguments) < 1 {
 				return errors.New("/reply must provide the address being replied to")
 			}
@@ -212,7 +208,6 @@ func (m *mockSession) Open(info SessionInfo) (string, Error) {
 }
 
 func (m *mockSession) Save() (string, Error) {
-	println("session save method")
 	return m.save.Message, m.save.Err
 }
 

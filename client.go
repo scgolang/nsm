@@ -130,6 +130,7 @@ func (c *Client) Initialize() error {
 
 	// Announce client.
 	if err := c.Announce(); err != nil {
+		_ = c.Close() // Best effort.
 		return errors.Wrap(err, "announce app")
 	}
 
@@ -191,8 +192,6 @@ func (c *Client) serveOSC() error {
 func (c *Client) dispatcher() osc.Dispatcher {
 	d := osc.Dispatcher{
 		AddressReply: func(msg osc.Message) error {
-			println("client local  addr = " + c.LocalAddr().String())
-			println("client remote addr = " + c.RemoteAddr().String())
 			c.ReplyChan <- msg
 			return nil
 		},
@@ -200,9 +199,7 @@ func (c *Client) dispatcher() osc.Dispatcher {
 			return c.handleOpen(msg)
 		},
 		AddressClientSave: func(msg osc.Message) error {
-			println("save handler")
 			response, nsmerr := c.Session.Save()
-			println("(dispatcher) sending reply to " + msg.Sender.String())
 			return c.handle(AddressClientSave, response, nsmerr)
 		},
 		AddressClientSessionIsLoaded: func(msg osc.Message) error {
@@ -275,11 +272,8 @@ func (c *Client) handleReply(address, message string) error {
 			osc.String(message),
 		},
 	}
-	println("(handleReply) sending reply to " + c.RemoteAddr().String())
 	if err := c.Send(msg); err != nil {
-		println("(handleReply) could not send reply " + err.Error())
 		return errors.Wrap(err, "send reply")
 	}
-	println("(handleReply) sent reply")
 	return nil
 }
