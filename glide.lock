@@ -1,10 +1,10 @@
 hash: 9652cd5b2e2555dc8ee5f8de1ce2a89ed10f1526e5c3bf1a30210ecd0547a362
-updated: 2016-12-03T14:33:36.31520376-06:00
+updated: 2016-12-03T14:53:28.370566533-06:00
 imports:
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/scgolang/osc
-  version: ade04a5cb806bd34aa7198d94d7963e872e0fc02
+  version: 7d8500324cb97d0db8a0e9834fc19799a79637c6
 - name: golang.org/x/net
   version: 6cdc0daab091c43fc46193327e0047b4f883c613
   subpackages:
