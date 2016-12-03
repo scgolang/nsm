@@ -1,6 +1,7 @@
 package nsm
 
 import (
+	"context"
 	"net"
 	"os"
 	"strings"
@@ -13,16 +14,16 @@ import (
 
 // OSC addresses.
 const (
-	AddressClientOpen            = "/nsm/client/open"
-	AddressClientSave            = "/nsm/client/save"
-	AddressClientSessionIsLoaded = "/nsm/client/session_is_loaded"
-	AddressClientShowOptionalGUI = "/nsm/client/show_optional_gui"
 	AddressClientHideOptionalGUI = "/nsm/client/hide_optional_gui"
-	AddressClientIsDirty         = "/nsm/client/is_dirty"
-	AddressClientIsClean         = "/nsm/client/is_clean"
+	AddressClientShowOptionalGUI = "/nsm/client/show_optional_gui"
 	AddressClientGUIHidden       = "/nsm/client/gui_is_hidden"
 	AddressClientGUIShowing      = "/nsm/client/gui_is_showing"
+	AddressClientIsClean         = "/nsm/client/is_clean"
+	AddressClientIsDirty         = "/nsm/client/is_dirty"
+	AddressClientOpen            = "/nsm/client/open"
 	AddressClientProgress        = "/nsm/client/progress"
+	AddressClientSave            = "/nsm/client/save"
+	AddressClientSessionIsLoaded = "/nsm/client/session_is_loaded"
 	AddressClientStatus          = "/nsm/client/message"
 	AddressError                 = "/error"
 	AddressReply                 = "/reply"
@@ -80,7 +81,9 @@ type Client struct {
 	osc.Conn
 	errgroup.Group
 
-	ReplyChan  chan osc.Message
+	ReplyChan chan osc.Message
+
+	ctx        context.Context
 	closedChan chan struct{}
 }
 
@@ -88,7 +91,7 @@ type Client struct {
 // If config.Session is nil then ErrNilSession will be returned.
 // If NSM_URL is not defined in the environment then ErrNoNsmURL will be returned.
 // TODO: validate config?
-func NewClient(config ClientConfig) (*Client, error) {
+func NewClient(ctx context.Context, config ClientConfig) (*Client, error) {
 	if config.Session == nil {
 		return nil, ErrNilSession
 	}
@@ -100,6 +103,7 @@ func NewClient(config ClientConfig) (*Client, error) {
 		ClientConfig: config,
 		ReplyChan:    make(chan osc.Message),
 		closedChan:   make(chan struct{}),
+		ctx:          ctx,
 	}
 	c.Defaults()
 

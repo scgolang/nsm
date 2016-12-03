@@ -1,6 +1,7 @@
 package nsm
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -20,10 +21,12 @@ func testConfig() ClientConfig {
 	}
 }
 
-func TestNewClient(t *testing.T) {
-	if _, err := NewClient(ClientConfig{Session: nil}); err == nil {
-		t.Fatal("expected error, got nil")
+func newClient(t *testing.T, config ClientConfig) *Client {
+	c, err := NewClient(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
 	}
+	return c
 }
 
 func TestClientAnnounce(t *testing.T) {
@@ -35,7 +38,7 @@ func TestClientAnnounce(t *testing.T) {
 		t.Fatalf("unset NSM_URL %s", err)
 	}
 
-	c, err := NewClient(ClientConfig{
+	c := newClient(t, ClientConfig{
 		Name:         "test_client",
 		Capabilities: Capabilities{"switch", "progress"},
 		Major:        1,
@@ -44,9 +47,6 @@ func TestClientAnnounce(t *testing.T) {
 		Session:      &mockSession{},
 		NsmURL:       nsmd.LocalAddr().String(),
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	defer func() { _ = c.Close() }() // Best effort.
 }
 
@@ -58,7 +58,7 @@ func TestClientAnnounceTimeout(t *testing.T) {
 	})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	_, err := NewClient(ClientConfig{
+	_, err := NewClient(context.Background(), ClientConfig{
 		Name:                 "test_client",
 		Capabilities:         Capabilities{"switch", "progress"},
 		Major:                1,
@@ -80,7 +80,7 @@ func TestClientNoNsmUrl(t *testing.T) {
 	if err := os.Unsetenv(NsmURL); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewClient(testConfig()); err == nil {
+	if _, err := NewClient(context.Background(), testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
 		if expected, got := `initialize client: dial udp: No `+NsmURL+` environment variable`, err.Error(); expected != got {
@@ -93,7 +93,7 @@ func TestClientGarbageNsmUrl(t *testing.T) {
 	if err := os.Setenv(NsmURL, "garbage"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewClient(testConfig()); err == nil {
+	if _, err := NewClient(context.Background(), testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
 		if expected, got := `initialize client: dial udp: resolve udp remote address: missing port in address garbage`, err.Error(); expected != got {
@@ -112,7 +112,7 @@ func TestClientGarbageListenAddr(t *testing.T) {
 
 	config := testConfig()
 	config.ListenAddr = "garbage"
-	if _, err := NewClient(config); err == nil {
+	if _, err := NewClient(context.Background(), config); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
 		if expected, got := `initialize client: dial udp: resolve udp listening address: missing port in address garbage`, err.Error(); expected != got {
@@ -129,7 +129,7 @@ func TestClientReplyNoArguments(t *testing.T) {
 	})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	if _, err := NewClient(testConfig()); err == nil {
+	if _, err := NewClient(context.Background(), testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
 		if expected, got := `initialize client: announce app: handle announce reply: expected 4 arguments in announce reply, got 0`, err.Error(); expected != got {
@@ -151,7 +151,7 @@ func TestClientReplyFirstArgumentWrongAddress(t *testing.T) {
 	})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	if _, err := NewClient(testConfig()); err == nil {
+	if _, err := NewClient(context.Background(), testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
 		if expected, got := `initialize client: announce app: handle announce reply: expected 4 arguments in announce reply, got 1`, err.Error(); expected != got {

@@ -1,6 +1,7 @@
 package nsm
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -16,7 +17,7 @@ func TestClientDirty(t *testing.T) {
 	)
 	config.Session = &mockSession{dirtyChan: dirtyChan}
 
-	if _, err := NewClient(config); err != nil {
+	if _, err := NewClient(context.Background(), config); err != nil {
 		t.Fatal(err)
 	}
 	select {
@@ -71,7 +72,7 @@ func TestClientGuiShowing(t *testing.T) {
 	)
 	config.Session = &mockSession{showingGuiChan: showingGuiChan}
 
-	if _, err := NewClient(config); err != nil {
+	if _, err := NewClient(context.Background(), config); err != nil {
 		t.Fatal(err)
 	}
 	select {

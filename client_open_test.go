@@ -15,10 +15,7 @@ func TestClientOpenReplyMissingArguments(t *testing.T) {
 	config.Session = &mockSession{
 		open: mockReply{Message: "session started"},
 	}
-	c, err := NewClient(config)
-	if err != nil {
-		t.Fatal(err)
-	}
+	c := newClient(t, config)
 	defer func() { _ = c.Close() }() // Best effort.
 
 	reply := nsmd.OpenSession(osc.Message{
@@ -59,10 +56,7 @@ func TestClientOpenReplyError(t *testing.T) {
 			Err: NewError(ErrCreateFailed, "could not create new session"),
 		},
 	}
-	c, err := NewClient(config)
-	if err != nil {
-		t.Fatal(err)
-	}
+	c := newClient(t, config)
 	defer func() { _ = c.Close() }() // Best effort.
 
 	nsmErr := nsmd.OpenSessionError(osc.Message{

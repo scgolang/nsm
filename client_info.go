@@ -1,6 +1,8 @@
 package nsm
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 	"github.com/scgolang/osc"
 )
@@ -12,6 +14,10 @@ func (c *Client) handleClientInfo() error {
 		select {
 		case <-c.closedChan:
 			return nil
+		case <-c.ctx.Done():
+			if err := c.ctx.Err(); err != nil && err != context.Canceled {
+				return errors.Wrap(err, "context error after done")
+			}
 		case isDirty := <-c.Session.Dirty():
 			if err := c.sendDirty(isDirty); err != nil {
 				println("failed sending dirty")

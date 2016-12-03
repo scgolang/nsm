@@ -28,10 +28,7 @@ func TestClientSession(t *testing.T) {
 
 	config := testConfig()
 	config.Session = session
-	c, err := NewClient(config)
-	if err != nil {
-		t.Fatal(err)
-	}
+	c := newClient(t, config)
 	defer func() { _ = c.Close() }() // Best effort.
 
 	// session_is_loaded message

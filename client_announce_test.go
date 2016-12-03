@@ -1,6 +1,7 @@
 package nsm
 
 import (
+	"context"
 	"testing"
 
 	"github.com/scgolang/osc"
@@ -20,7 +21,7 @@ func TestClientAnnounceReplyMissingArguments(t *testing.T) {
 	})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	if _, err := NewClient(testConfig()); err == nil {
+	if _, err := NewClient(context.Background(), testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
 		if expected, got := `initialize client: announce app: handle announce reply: expected 4 arguments in announce reply, got 1`, err.Error(); expected != got {
@@ -46,7 +47,7 @@ func TestClientAnnounceReplyWrongAddress(t *testing.T) {
 	})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	if _, err := NewClient(testConfig()); err == nil {
+	if _, err := NewClient(context.Background(), testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
 		if expected, got := `initialize client: announce app: handle announce reply: expected /nsm/server/announce, got /foo/bar`, err.Error(); expected != got {
@@ -72,7 +73,7 @@ func TestClientAnnounceReplyFirstArgumentWrongType(t *testing.T) {
 	})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	if _, err := NewClient(testConfig()); err == nil {
+	if _, err := NewClient(context.Background(), testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
 		if expected, got := `initialize client: announce app: handle announce reply: read reply first argument: invalid type tag`, err.Error(); expected != got {
@@ -98,7 +99,7 @@ func TestClientAnnounceReplySecondArgumentWrongType(t *testing.T) {
 	})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	if _, err := NewClient(testConfig()); err == nil {
+	if _, err := NewClient(context.Background(), testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
 		if expected, got := `initialize client: announce app: handle announce reply: read reply message: invalid type tag`, err.Error(); expected != got {
@@ -124,7 +125,7 @@ func TestClientAnnounceReplyThirdArgumentWrongType(t *testing.T) {
 	})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	if _, err := NewClient(testConfig()); err == nil {
+	if _, err := NewClient(context.Background(), testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
 		if expected, got := `initialize client: announce app: handle announce reply: read session manager name: invalid type tag`, err.Error(); expected != got {
@@ -150,7 +151,7 @@ func TestClientAnnounceReplyFourthArgumentWrongType(t *testing.T) {
 	})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	if _, err := NewClient(testConfig()); err == nil {
+	if _, err := NewClient(context.Background(), testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
 		if expected, got := `initialize client: announce app: handle announce reply: read session manager capabilities: invalid type tag`, err.Error(); expected != got {

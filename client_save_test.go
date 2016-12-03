@@ -16,10 +16,7 @@ func TestClientSave(t *testing.T) {
 	config.Session = &mockSession{
 		save: mockReply{Message: "save successful"},
 	}
-	c, err := NewClient(config)
-	if err != nil {
-		t.Fatal(err)
-	}
+	c := newClient(t, config)
 	defer func() { _ = c.Close() }() // Best effort.
 
 	reply := nsmd.SaveSession(osc.Message{
