@@ -1,7 +1,6 @@
 package nsm
 
 import (
-	"context"
 	"net"
 	"os"
 	"strings"
@@ -80,23 +79,15 @@ type Client struct {
 	osc.Conn
 	errgroup.Group
 
-	ReplyChan chan osc.Message
-	ctx       context.Context
+	ReplyChan  chan osc.Message
+	closedChan chan struct{}
 }
 
 // NewClient creates a new nsm-enabled application.
 // If config.Session is nil then ErrNilSession will be returned.
 // If NSM_URL is not defined in the environment then ErrNoNsmURL will be returned.
-func NewClient(config ClientConfig) (*Client, error) {
-	return NewClientG(context.Background(), config)
-}
-
-// NewClientG creates a new nsm-enabled application whose goroutines
-// are part of the provided errgroup.Group.
-// If config.Session is nil then ErrNilSession will be returned.
-// If NSM_URL is not defined in the environment then ErrNoNsmURL will be returned.
 // TODO: validate config?
-func NewClientG(ctx context.Context, config ClientConfig) (*Client, error) {
+func NewClient(config ClientConfig) (*Client, error) {
 	if config.Session == nil {
 		return nil, ErrNilSession
 	}
@@ -107,7 +98,7 @@ func NewClientG(ctx context.Context, config ClientConfig) (*Client, error) {
 	c := &Client{
 		ClientConfig: config,
 		ReplyChan:    make(chan osc.Message),
-		ctx:          ctx,
+		closedChan:   make(chan struct{}),
 	}
 	c.Defaults()
 
@@ -188,6 +179,7 @@ func (c *Client) StartOSC() {
 // Close closes the nsm client.
 func (c *Client) Close() error {
 	close(c.ReplyChan)
+	close(c.closedChan)
 	return c.Conn.Close()
 }
 

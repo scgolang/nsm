@@ -10,8 +10,8 @@ import (
 func (c *Client) handleClientInfo() error {
 	for {
 		select {
-		case <-c.ctx.Done():
-			return errors.Wrap(c.ctx.Err(), "handleClientInfo")
+		case <-c.closedChan:
+			return nil
 		case isDirty := <-c.Session.Dirty():
 			if err := c.sendDirty(isDirty); err != nil {
 				return errors.Wrap(err, "send dirty message")

@@ -35,6 +35,11 @@ type mockNsmd struct {
 	saveChan chan osc.Message
 	openErr  chan Error
 	saveErr  chan Error
+
+	dirtyChan      chan struct{}
+	cleanChan      chan struct{}
+	progressChan   chan float32
+	guiShowingChan chan bool
 }
 
 // newMockNsmd creates a new mock nsmd server.
@@ -52,6 +57,11 @@ func newMockNsmd(t *testing.T, config mockNsmdConfig) *mockNsmd {
 		saveChan: make(chan osc.Message),
 		openErr:  make(chan Error),
 		saveErr:  make(chan Error),
+
+		dirtyChan:      make(chan struct{}),
+		cleanChan:      make(chan struct{}),
+		progressChan:   make(chan float32),
+		guiShowingChan: make(chan bool),
 	}
 	nsmd.defaults()
 	nsmd.initialize()
@@ -214,59 +224,78 @@ func (m *mockNsmd) startOSC() error {
 
 func (m *mockNsmd) dispatcher() osc.Dispatcher {
 	return osc.Dispatcher{
-		AddressServerAnnounce: func(msg osc.Message) error {
-			m.clientAddr = msg.Sender
+		AddressServerAnnounce: m.AnnounceHandler,
+		AddressReply:          m.ReplyHandler,
+		AddressError:          m.ErrorHandler,
 
-			// Sleep then reply.
-			time.Sleep(m.announcePause)
-			if err := m.SendTo(msg.Sender, m.announceReply); err != nil {
-				return err
-			}
-			close(m.announceAcked)
-			return nil
-		},
-		AddressReply: func(msg osc.Message) error {
-			if len(msg.Arguments) < 1 {
-				return errors.New("/reply must provide the address being replied to")
-			}
-			addr, err := msg.Arguments[0].ReadString()
-			if err != nil {
-				return errors.Wrap(err, "expected first argument to be a string")
-			}
-			switch addr {
-			case AddressClientOpen:
-				m.openChan <- msg
-			case AddressClientSave:
-				m.saveChan <- msg
+		AddressClientGUIHidden: func(msg osc.Message) error {
+			// TODO: block
+			select {
+			default:
+			case m.guiShowingChan <- false:
 			}
 			return nil
 		},
-		AddressError: func(msg osc.Message) error {
-			if len(msg.Arguments) < 3 {
-				return errors.New("/error must have at least 3 arguments")
-			}
-			addr, err := msg.Arguments[0].ReadString()
-			if err != nil {
-				return errors.Wrap(err, "reading first argument")
-			}
-			code, err := msg.Arguments[1].ReadInt32()
-			if err != nil {
-				return errors.Wrap(err, "reading second argument")
-			}
-			errmsg, err := msg.Arguments[2].ReadString()
-			if err != nil {
-				return errors.Wrap(err, "reading third argument")
-			}
-			nsmErr := NewError(Code(code), errmsg)
-			switch addr {
-			case AddressClientOpen:
-				m.openErr <- nsmErr
-			case AddressClientSave:
-				m.saveErr <- nsmErr
-			}
+		AddressClientGUIShowing: func(msg osc.Message) error {
+			m.guiShowingChan <- true
 			return nil
 		},
 	}
+}
+
+func (m *mockNsmd) AnnounceHandler(msg osc.Message) error {
+	m.clientAddr = msg.Sender
+
+	// Sleep then reply.
+	time.Sleep(m.announcePause)
+	if err := m.SendTo(msg.Sender, m.announceReply); err != nil {
+		return err
+	}
+	close(m.announceAcked)
+	return nil
+}
+
+func (m *mockNsmd) ReplyHandler(msg osc.Message) error {
+	if len(msg.Arguments) < 1 {
+		return errors.New("/reply must provide the address being replied to")
+	}
+	addr, err := msg.Arguments[0].ReadString()
+	if err != nil {
+		return errors.Wrap(err, "expected first argument to be a string")
+	}
+	switch addr {
+	case AddressClientOpen:
+		m.openChan <- msg
+	case AddressClientSave:
+		m.saveChan <- msg
+	}
+	return nil
+}
+
+func (m *mockNsmd) ErrorHandler(msg osc.Message) error {
+	if len(msg.Arguments) < 3 {
+		return errors.New("/error must have at least 3 arguments")
+	}
+	addr, err := msg.Arguments[0].ReadString()
+	if err != nil {
+		return errors.Wrap(err, "reading first argument")
+	}
+	code, err := msg.Arguments[1].ReadInt32()
+	if err != nil {
+		return errors.Wrap(err, "reading second argument")
+	}
+	errmsg, err := msg.Arguments[2].ReadString()
+	if err != nil {
+		return errors.Wrap(err, "reading third argument")
+	}
+	nsmErr := NewError(Code(code), errmsg)
+	switch addr {
+	case AddressClientOpen:
+		m.openErr <- nsmErr
+	case AddressClientSave:
+		m.saveErr <- nsmErr
+	}
+	return nil
 }
 
 type mockReply struct {
