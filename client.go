@@ -226,27 +226,6 @@ func (c *Client) dispatcher() osc.Dispatcher {
 	return d
 }
 
-// wait waits for a reply to a message that was sent to address.
-func (c *Client) wait(address string) (osc.Message, error) {
-	timeout := time.After(c.Timeout)
-	select {
-	case <-timeout:
-		return osc.Message{}, ErrTimeout
-	case msg := <-c.ReplyChan:
-		if len(msg.Arguments) < 1 {
-			return osc.Message{}, errors.New("reply message should contain at least one argument")
-		}
-		replyAddr, err := msg.Arguments[0].ReadString()
-		if err != nil {
-			return osc.Message{}, errors.Wrap(err, "first argument of reply message should be a string")
-		}
-		if expected, got := address, replyAddr; expected != got {
-			return osc.Message{}, errors.Errorf("expected %s, got %s", expected, got)
-		}
-		return msg, nil
-	}
-}
-
 // handle handles the return values from a Session's method.
 // The method must be associated with the provided address,
 // e.g. ClientOpen should be passed after calling a Session's

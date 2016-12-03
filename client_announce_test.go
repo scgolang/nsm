@@ -50,7 +50,7 @@ func TestClientAnnounceReplyFirstArgumentWrongType(t *testing.T) {
 	if _, err := NewClient(testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
-		if expected, got := `initialize client: announce app: waiting for announce reply: first argument of reply message should be a string: invalid type tag`, err.Error(); expected != got {
+		if expected, got := `initialize client: announce app: handle announce reply: read reply message: invalid type tag`, err.Error(); expected != got {
 			t.Fatalf("expected %s, got %s", expected, got)
 		}
 	}

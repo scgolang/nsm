@@ -69,7 +69,7 @@ func TestClientAnnounceTimeout(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if expected, got := `initialize client: announce app: waiting for announce reply: timeout`, err.Error(); expected != got {
+	if expected, got := `initialize client: announce app: timeout`, err.Error(); expected != got {
 		t.Fatalf("expected %s, got %s", expected, got)
 	}
 }
@@ -130,7 +130,7 @@ func TestClientReplyNoArguments(t *testing.T) {
 	if _, err := NewClient(testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
-		if expected, got := `initialize client: announce app: waiting for announce reply: reply message should contain at least one argument`, err.Error(); expected != got {
+		if expected, got := `initialize client: announce app: handle announce reply: expected 4 arguments in announce reply, got 0`, err.Error(); expected != got {
 			t.Fatalf("expected %s, got %s", expected, got)
 		}
 	}
@@ -152,7 +152,7 @@ func TestClientReplyFirstArgumentWrongType(t *testing.T) {
 	if _, err := NewClient(testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
-		if expected, got := `initialize client: announce app: waiting for announce reply: first argument of reply message should be a string: invalid type tag`, err.Error(); expected != got {
+		if expected, got := `initialize client: announce app: handle announce reply: expected 4 arguments in announce reply, got 1`, err.Error(); expected != got {
 			t.Fatalf("expected %s, got %s", expected, got)
 		}
 	}
@@ -174,7 +174,7 @@ func TestClientReplyFirstArgumentWrongAddress(t *testing.T) {
 	if _, err := NewClient(testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
 	} else {
-		if expected, got := `initialize client: announce app: waiting for announce reply: expected /nsm/server/announce, got /foo/bar`, err.Error(); expected != got {
+		if expected, got := `initialize client: announce app: handle announce reply: expected 4 arguments in announce reply, got 1`, err.Error(); expected != got {
 			t.Fatalf("expected %s, got %s", expected, got)
 		}
 	}

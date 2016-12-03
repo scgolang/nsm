@@ -2,6 +2,7 @@ package nsm
 
 import (
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/scgolang/osc"
@@ -29,12 +30,12 @@ func (c *Client) Announce() error {
 		return errors.Wrap(err, "send announce message")
 	}
 
-	// Wait for the server's reply.
-	reply, err := c.wait(AddressServerAnnounce)
-	if err != nil {
-		return errors.Wrap(err, "waiting for announce reply")
+	select {
+	case <-time.After(c.Timeout):
+		return errors.New("timeout")
+	case reply := <-c.ReplyChan:
+		return errors.Wrap(c.handleAnnounce(reply), "handle announce reply")
 	}
-	return errors.Wrap(c.handleAnnounce(reply), "handle announce reply")
 }
 
 // handleAnnounce handles a reply to the announce message.
