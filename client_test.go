@@ -136,28 +136,6 @@ func TestClientReplyNoArguments(t *testing.T) {
 	}
 }
 
-func TestClientReplyFirstArgumentWrongType(t *testing.T) {
-	// mockNsmd sets an environment variable to point the client to it's listening address
-	nsmd := newMockNsmd(t, mockNsmdConfig{
-		listenAddr: "127.0.0.1:0",
-		announceReply: osc.Message{
-			Address: AddressReply,
-			Arguments: osc.Arguments{
-				osc.Int(4),
-			},
-		},
-	})
-	defer func() { _ = nsmd.Close() }() // Best effort.
-
-	if _, err := NewClient(testConfig()); err == nil {
-		t.Fatal("expected error, got nil")
-	} else {
-		if expected, got := `initialize client: announce app: handle announce reply: expected 4 arguments in announce reply, got 1`, err.Error(); expected != got {
-			t.Fatalf("expected %s, got %s", expected, got)
-		}
-	}
-}
-
 func TestClientReplyFirstArgumentWrongAddress(t *testing.T) {
 	// mockNsmd sets an environment variable to point the client to it's listening address
 	nsmd := newMockNsmd(t, mockNsmdConfig{

@@ -44,6 +44,13 @@ func (c *Client) handleAnnounce(msg osc.Message) error {
 		return errors.Errorf("expected 4 arguments in announce reply, got %d", got)
 	}
 	// TODO: verify first argument is AddressServerAnnounce
+	addr, err := msg.Arguments[0].ReadString()
+	if err != nil {
+		return errors.Wrap(err, "read reply first argument")
+	}
+	if addr != AddressServerAnnounce {
+		return errors.New("expected " + AddressServerAnnounce + ", got " + addr)
+	}
 	serverMsg, err := msg.Arguments[1].ReadString()
 	if err != nil {
 		return errors.Wrap(err, "read reply message")

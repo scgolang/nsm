@@ -87,21 +87,10 @@ func TestClientOpenReplyError(t *testing.T) {
 	if nsmErr == nil {
 		t.Fatal("expected error, got nil")
 	}
-	// if expected, got := 2, len(reply.Arguments); expected != got {
-	// 	t.Fatalf("expected %d arguments, got %d", expected, got)
-	// }
-	// replyAddr, err := reply.Arguments[0].ReadString()
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// if expected, got := AddressClientOpen, replyAddr; expected != got {
-	// 	t.Fatalf("expected %s, got %s", expected, got)
-	// }
-	// replyMessage, err := reply.Arguments[1].ReadString()
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// if expected, got := `session started`, replyMessage; expected != got {
-	// 	t.Fatalf("expected %s, got %s", expected, got)
-	// }
+	if expected, got := ErrCreateFailed, nsmErr.Code(); expected != got {
+		t.Fatalf("expected %d, got %d", expected, got)
+	}
+	if expected, got := `could not create new session`, nsmErr.Error(); expected != got {
+		t.Fatalf("expected %s, got %s", expected, got)
+	}
 }
