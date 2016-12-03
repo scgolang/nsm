@@ -98,7 +98,6 @@ func (conn *UDPConn) serve(dispatcher Dispatcher) error {
 			return err
 		}
 		if err := dispatcher.Invoke(msg); err != nil {
-			println("############## dispatcher error " + err.Error())
 			return errors.Wrap(err, "dispatch message")
 		}
 	default:

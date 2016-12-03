@@ -64,11 +64,14 @@ type ClientConfig struct {
 	Major        int32
 	Minor        int32
 	PID          int
-	Timeout      time.Duration
-	Session      Session
-	ListenAddr   string
-	DialNetwork  string
-	NsmURL       string
+
+	// Timeout is an amount of time we should wait for a response from the nsm server.
+	Timeout time.Duration
+
+	Session     Session
+	ListenAddr  string
+	DialNetwork string
+	NsmURL      string
 }
 
 // Client represents an nsm client.
@@ -85,7 +88,7 @@ type Client struct {
 // If config.Session is nil then ErrNilSession will be returned.
 // If NSM_URL is not defined in the environment then ErrNoNsmURL will be returned.
 func NewClient(config ClientConfig) (*Client, error) {
-	return NewClientG(config, context.Background())
+	return NewClientG(context.Background(), config)
 }
 
 // NewClientG creates a new nsm-enabled application whose goroutines
@@ -93,7 +96,7 @@ func NewClient(config ClientConfig) (*Client, error) {
 // If config.Session is nil then ErrNilSession will be returned.
 // If NSM_URL is not defined in the environment then ErrNoNsmURL will be returned.
 // TODO: validate config?
-func NewClientG(config ClientConfig, ctx context.Context) (*Client, error) {
+func NewClientG(ctx context.Context, config ClientConfig) (*Client, error) {
 	if config.Session == nil {
 		return nil, ErrNilSession
 	}
@@ -106,6 +109,8 @@ func NewClientG(config ClientConfig, ctx context.Context) (*Client, error) {
 		ReplyChan:    make(chan osc.Message),
 		ctx:          ctx,
 	}
+	c.Defaults()
+
 	if err := c.Initialize(); err != nil {
 		return nil, errors.Wrap(err, "initialize client")
 	}
@@ -115,12 +120,6 @@ func NewClientG(config ClientConfig, ctx context.Context) (*Client, error) {
 // Initialize initializes the client.
 func (c *Client) Initialize() error {
 	// Get connection.
-	if c.ListenAddr == "" {
-		c.ListenAddr = "0.0.0.0:0"
-	}
-	if c.DialNetwork == "" {
-		c.DialNetwork = "udp"
-	}
 	if err := c.DialUDP(c.ListenAddr); err != nil {
 		return errors.Wrap(err, "dial udp")
 	}
@@ -133,8 +132,17 @@ func (c *Client) Initialize() error {
 		_ = c.Close() // Best effort.
 		return errors.Wrap(err, "announce app")
 	}
-
 	return nil
+}
+
+// Defaults sets default config values for the client.
+func (c *Client) Defaults() {
+	if c.ListenAddr == "" {
+		c.ListenAddr = "0.0.0.0:0"
+	}
+	if c.DialNetwork == "" {
+		c.DialNetwork = "udp"
+	}
 }
 
 // DialUDP initializes the connection to non session manager.
@@ -234,9 +242,8 @@ func (c *Client) wait(address string) (osc.Message, error) {
 		}
 		if expected, got := address, replyAddr; expected != got {
 			return osc.Message{}, errors.Errorf("expected %s, got %s", expected, got)
-		} else {
-			return msg, nil
 		}
+		return msg, nil
 	}
 }
 
@@ -256,6 +263,7 @@ func (c *Client) handleError(address string, err Error) error {
 	msg := osc.Message{
 		Address: AddressError,
 		Arguments: osc.Arguments{
+			osc.String(address),
 			osc.Int(int32(err.Code())),
 			osc.String(err.Error()),
 		},
@@ -272,8 +280,5 @@ func (c *Client) handleReply(address, message string) error {
 			osc.String(message),
 		},
 	}
-	if err := c.Send(msg); err != nil {
-		return errors.Wrap(err, "send reply")
-	}
-	return nil
+	return errors.Wrap(c.Send(msg), "send reply")
 }

@@ -4,7 +4,20 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/scgolang/osc"
 )
+
+func testConfig() ClientConfig {
+	return ClientConfig{
+		Name:         "test_client",
+		Capabilities: Capabilities{"switch", "progress"},
+		Major:        1,
+		Minor:        2,
+		PID:          os.Getpid(),
+		Session:      &mockSession{},
+	}
+}
 
 func TestNewClient(t *testing.T) {
 	if _, err := NewClient(ClientConfig{Session: nil}); err == nil {
@@ -14,10 +27,12 @@ func TestNewClient(t *testing.T) {
 
 func TestClientAnnounce(t *testing.T) {
 	// mockNsmd sets an environment variable to point the client to it's listening address
-	nsmd := newMockNsmd(t, mockNsmdConfig{
-		listenAddr: "127.0.0.1:0",
-	})
+	nsmd := newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
 	defer func() { _ = nsmd.Close() }() // Best effort.
+
+	if err := os.Unsetenv(NsmURL); err != nil {
+		t.Fatalf("unset NSM_URL %s", err)
+	}
 
 	c, err := NewClient(ClientConfig{
 		Name:         "test_client",
@@ -26,6 +41,7 @@ func TestClientAnnounce(t *testing.T) {
 		Minor:        2,
 		PID:          os.Getpid(),
 		Session:      &mockSession{},
+		NsmURL:       nsmd.LocalAddr().String(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -62,20 +78,12 @@ func TestClientNoNsmUrl(t *testing.T) {
 	if err := os.Unsetenv(NsmURL); err != nil {
 		t.Fatal(err)
 	}
-
-	_, err := NewClient(ClientConfig{
-		Name:         "test_client",
-		Capabilities: Capabilities{"switch", "progress"},
-		Major:        1,
-		Minor:        2,
-		PID:          os.Getpid(),
-		Session:      &mockSession{},
-	})
-	if err == nil {
+	if _, err := NewClient(testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
-	}
-	if expected, got := `initialize client: dial udp: No `+NsmURL+` environment variable`, err.Error(); expected != got {
-		t.Fatalf("expected %s, got %s", expected, got)
+	} else {
+		if expected, got := `initialize client: dial udp: No `+NsmURL+` environment variable`, err.Error(); expected != got {
+			t.Fatalf("expected %s, got %s", expected, got)
+		}
 	}
 }
 
@@ -83,20 +91,12 @@ func TestClientGarbageNsmUrl(t *testing.T) {
 	if err := os.Setenv(NsmURL, "garbage"); err != nil {
 		t.Fatal(err)
 	}
-
-	_, err := NewClient(ClientConfig{
-		Name:         "test_client",
-		Capabilities: Capabilities{"switch", "progress"},
-		Major:        1,
-		Minor:        2,
-		PID:          os.Getpid(),
-		Session:      &mockSession{},
-	})
-	if err == nil {
+	if _, err := NewClient(testConfig()); err == nil {
 		t.Fatal("expected error, got nil")
-	}
-	if expected, got := `initialize client: dial udp: resolve udp remote address: missing port in address garbage`, err.Error(); expected != got {
-		t.Fatalf("expected %s, got %s", expected, got)
+	} else {
+		if expected, got := `initialize client: dial udp: resolve udp remote address: missing port in address garbage`, err.Error(); expected != got {
+			t.Fatalf("expected %s, got %s", expected, got)
+		}
 	}
 }
 
@@ -108,19 +108,74 @@ func TestClientGarbageListenAddr(t *testing.T) {
 	})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	_, err := NewClient(ClientConfig{
-		Name:         "test_client",
-		Capabilities: Capabilities{"switch", "progress"},
-		Major:        1,
-		Minor:        2,
-		PID:          os.Getpid(),
-		Session:      &mockSession{},
-		ListenAddr:   "garbage",
-	})
-	if err == nil {
+	config := testConfig()
+	config.ListenAddr = "garbage"
+	if _, err := NewClient(config); err == nil {
 		t.Fatal("expected error, got nil")
+	} else {
+		if expected, got := `initialize client: dial udp: resolve udp listening address: missing port in address garbage`, err.Error(); expected != got {
+			t.Fatalf("expected %s, got %s", expected, got)
+		}
 	}
-	if expected, got := `initialize client: dial udp: resolve udp listening address: missing port in address garbage`, err.Error(); expected != got {
-		t.Fatalf("expected %s, got %s", expected, got)
+}
+
+func TestClientReplyNoArguments(t *testing.T) {
+	// mockNsmd sets an environment variable to point the client to it's listening address
+	nsmd := newMockNsmd(t, mockNsmdConfig{
+		listenAddr:    "127.0.0.1:0",
+		announceReply: osc.Message{Address: AddressReply},
+	})
+	defer func() { _ = nsmd.Close() }() // Best effort.
+
+	if _, err := NewClient(testConfig()); err == nil {
+		t.Fatal("expected error, got nil")
+	} else {
+		if expected, got := `initialize client: announce app: waiting for announce reply: reply message should contain at least one argument`, err.Error(); expected != got {
+			t.Fatalf("expected %s, got %s", expected, got)
+		}
+	}
+}
+
+func TestClientReplyFirstArgumentWrongType(t *testing.T) {
+	// mockNsmd sets an environment variable to point the client to it's listening address
+	nsmd := newMockNsmd(t, mockNsmdConfig{
+		listenAddr: "127.0.0.1:0",
+		announceReply: osc.Message{
+			Address: AddressReply,
+			Arguments: osc.Arguments{
+				osc.Int(4),
+			},
+		},
+	})
+	defer func() { _ = nsmd.Close() }() // Best effort.
+
+	if _, err := NewClient(testConfig()); err == nil {
+		t.Fatal("expected error, got nil")
+	} else {
+		if expected, got := `initialize client: announce app: waiting for announce reply: first argument of reply message should be a string: invalid type tag`, err.Error(); expected != got {
+			t.Fatalf("expected %s, got %s", expected, got)
+		}
+	}
+}
+
+func TestClientReplyFirstArgumentWrongAddress(t *testing.T) {
+	// mockNsmd sets an environment variable to point the client to it's listening address
+	nsmd := newMockNsmd(t, mockNsmdConfig{
+		listenAddr: "127.0.0.1:0",
+		announceReply: osc.Message{
+			Address: AddressReply,
+			Arguments: osc.Arguments{
+				osc.String("/foo/bar"),
+			},
+		},
+	})
+	defer func() { _ = nsmd.Close() }() // Best effort.
+
+	if _, err := NewClient(testConfig()); err == nil {
+		t.Fatal("expected error, got nil")
+	} else {
+		if expected, got := `initialize client: announce app: waiting for announce reply: expected /nsm/server/announce, got /foo/bar`, err.Error(); expected != got {
+			t.Fatalf("expected %s, got %s", expected, got)
+		}
 	}
 }

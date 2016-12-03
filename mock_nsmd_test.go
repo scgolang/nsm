@@ -25,12 +25,16 @@ type mockNsmd struct {
 	osc.Conn
 	errgroup.Group
 
-	t             *testing.T
-	timeout       time.Duration
-	clientAddr    net.Addr
-	openChan      chan osc.Message
-	saveChan      chan osc.Message
+	t          *testing.T
+	timeout    time.Duration
+	clientAddr net.Addr
+
 	announceAcked chan struct{}
+
+	openChan chan osc.Message
+	saveChan chan osc.Message
+	openErr  chan Error
+	saveErr  chan Error
 }
 
 // newMockNsmd creates a new mock nsmd server.
@@ -39,10 +43,15 @@ type mockNsmd struct {
 func newMockNsmd(t *testing.T, config mockNsmdConfig) *mockNsmd {
 	nsmd := &mockNsmd{
 		mockNsmdConfig: config,
-		t:              t,
-		announceAcked:  make(chan struct{}),
-		openChan:       make(chan osc.Message),
-		saveChan:       make(chan osc.Message),
+
+		t: t,
+
+		announceAcked: make(chan struct{}),
+
+		openChan: make(chan osc.Message),
+		saveChan: make(chan osc.Message),
+		openErr:  make(chan Error),
+		saveErr:  make(chan Error),
 	}
 	nsmd.defaults()
 	nsmd.initialize()
@@ -92,6 +101,12 @@ func (m *mockNsmd) OpenSession(msg osc.Message) osc.Message {
 	return m.serverToClient("open", m.openChan, msg)
 }
 
+// OpenSessionError sends the provided message (which may or may not be an open message),
+// and waits for an error with a configurable timeout.
+func (m *mockNsmd) OpenSessionError(msg osc.Message) Error {
+	return m.serverToClientError("open", m.openErr, msg)
+}
+
 // OpenSession sends the provided message (which may or may not be an open message),
 // and waits for a reply with a configurable timeout.
 func (m *mockNsmd) SaveSession(msg osc.Message) osc.Message {
@@ -103,6 +118,24 @@ func (m *mockNsmd) SessionLoaded() {
 	<-m.announceAcked
 
 	if err := m.SendTo(m.clientAddr, osc.Message{Address: AddressClientSessionIsLoaded}); err != nil {
+		m.t.Fatalf("SessionLoaded: %s", err)
+	}
+}
+
+// HideOptionalGUI triggers a hide_optional_gui message.
+func (m *mockNsmd) HideOptionalGUI() {
+	<-m.announceAcked
+
+	if err := m.SendTo(m.clientAddr, osc.Message{Address: AddressClientHideOptionalGUI}); err != nil {
+		m.t.Fatalf("SessionLoaded: %s", err)
+	}
+}
+
+// ShowOptionalGUI triggers a show_optional_gui message.
+func (m *mockNsmd) ShowOptionalGUI() {
+	<-m.announceAcked
+
+	if err := m.SendTo(m.clientAddr, osc.Message{Address: AddressClientShowOptionalGUI}); err != nil {
 		m.t.Fatalf("SessionLoaded: %s", err)
 	}
 }
@@ -150,6 +183,31 @@ func (m *mockNsmd) serverToClient(cmdName string, replyChan chan osc.Message, ms
 	return <-mc
 }
 
+func (m *mockNsmd) serverToClientError(cmdName string, errChan chan Error, msg osc.Message) Error {
+	// Wait for announcement from the client.
+	<-m.announceAcked
+
+	ec := make(chan Error)
+	go func(ec chan Error) {
+		var (
+			timeout = time.After(m.timeout)
+			nsmErr  Error
+		)
+		select {
+		case nsmErr = <-errChan:
+			ec <- nsmErr
+		case <-timeout:
+			m.t.Fatalf("timeout after %s waiting for %s reply", m.timeout.String(), cmdName)
+		}
+		ec <- nil
+	}(ec)
+
+	if err := m.SendTo(m.clientAddr, msg); err != nil {
+		m.t.Fatalf("sending %s message: %s", cmdName, err)
+	}
+	return <-ec
+}
+
 func (m *mockNsmd) startOSC() error {
 	return m.Serve(m.dispatcher())
 }
@@ -183,6 +241,31 @@ func (m *mockNsmd) dispatcher() osc.Dispatcher {
 			}
 			return nil
 		},
+		AddressError: func(msg osc.Message) error {
+			if len(msg.Arguments) < 3 {
+				return errors.New("/error must have at least 3 arguments")
+			}
+			addr, err := msg.Arguments[0].ReadString()
+			if err != nil {
+				return errors.Wrap(err, "reading first argument")
+			}
+			code, err := msg.Arguments[1].ReadInt32()
+			if err != nil {
+				return errors.Wrap(err, "reading second argument")
+			}
+			errmsg, err := msg.Arguments[2].ReadString()
+			if err != nil {
+				return errors.Wrap(err, "reading third argument")
+			}
+			nsmErr := NewError(Code(code), errmsg)
+			switch addr {
+			case AddressClientOpen:
+				m.openErr <- nsmErr
+			case AddressClientSave:
+				m.saveErr <- nsmErr
+			}
+			return nil
+		},
 	}
 }
 
@@ -200,6 +283,8 @@ type mockSession struct {
 	// Note that client code needs to initialize these.
 	loadedChan  chan struct{}
 	showGuiChan chan bool
+
+	methods osc.Dispatcher
 }
 
 func (m *mockSession) Open(info SessionInfo) (string, Error) {
@@ -219,4 +304,17 @@ func (m *mockSession) IsLoaded() error {
 func (m *mockSession) ShowGUI(show bool) error {
 	m.showGuiChan <- show
 	return nil
+}
+
+func (m *mockSession) Methods() osc.Dispatcher {
+	return m.methods
+}
+
+// mockSendErr provides an osc.Conn that always returns an error from it's Send method.
+type mockSendErr struct {
+	osc.Conn
+}
+
+func (m mockSendErr) Send(p osc.Packet) error {
+	return errors.New("oops")
 }
