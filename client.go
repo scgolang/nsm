@@ -67,10 +67,11 @@ type ClientConfig struct {
 	// Timeout is an amount of time we should wait for a response from the nsm server.
 	Timeout time.Duration
 
-	Session     Session
-	ListenAddr  string
-	DialNetwork string
-	NsmURL      string
+	Session              Session
+	ListenAddr           string
+	DialNetwork          string
+	NsmURL               string
+	WaitForAnnounceReply bool
 }
 
 // Client represents an nsm client.
@@ -110,6 +111,12 @@ func NewClient(config ClientConfig) (*Client, error) {
 
 // Initialize initializes the client.
 func (c *Client) Initialize() error {
+	if c.closedChan == nil {
+		c.closedChan = make(chan struct{})
+	}
+	if c.ReplyChan == nil {
+		c.ReplyChan = make(chan osc.Message)
+	}
 	// Get connection.
 	if err := c.DialUDP(c.ListenAddr); err != nil {
 		return errors.Wrap(err, "dial udp")
@@ -138,6 +145,10 @@ func (c *Client) Defaults() {
 
 // DialUDP initializes the connection to non session manager.
 func (c *Client) DialUDP(localAddr string) error {
+	// Tests will sometimes initialize a conn without this method that does naughty things.
+	if c.Conn != nil {
+		return nil
+	}
 	// Allow client configuration to override the env var.
 	var nsmURL string
 	if c.NsmURL == "" {

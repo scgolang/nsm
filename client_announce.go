@@ -29,6 +29,9 @@ func (c *Client) Announce() error {
 	if err := c.Send(msg); err != nil {
 		return errors.Wrap(err, "send announce message")
 	}
+	if !c.WaitForAnnounceReply {
+		return nil
+	}
 
 	select {
 	case <-time.After(c.Timeout):

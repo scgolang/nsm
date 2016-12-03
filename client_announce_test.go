@@ -1,7 +1,6 @@
 package nsm
 
 import (
-	"net"
 	"testing"
 
 	"github.com/scgolang/osc"
@@ -161,18 +160,7 @@ func TestClientAnnounceReplyFourthArgumentWrongType(t *testing.T) {
 }
 
 func TestClientAnnounceSendError(t *testing.T) {
-	raddr, err := net.ResolveUDPAddr("udp", "example.com:8000")
-	if err != nil {
-		t.Fatal(err)
-	}
-	conn, err := osc.DialUDP("udp", nil, raddr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	c := &Client{
-		Conn:         mockSendErr{Conn: conn},
-		ClientConfig: testConfig(),
-	}
+	c := clientFailSend(t, testConfig(), 0)
 	if err := c.Announce(); err == nil {
 		t.Fatal("expected error, got nil")
 	}

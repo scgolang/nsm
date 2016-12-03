@@ -5,8 +5,8 @@ import (
 	"github.com/scgolang/osc"
 )
 
-// handleClientInfo runs a goroutine that handles the
-// client to server informational messages.
+// handleClientInfo runs a goroutine that handles the client to server informational messages.
+// This is a persistent goroutine that closes the client's connection when it exits.
 func (c *Client) handleClientInfo() error {
 	for {
 		select {
@@ -14,6 +14,7 @@ func (c *Client) handleClientInfo() error {
 			return nil
 		case isDirty := <-c.Session.Dirty():
 			if err := c.sendDirty(isDirty); err != nil {
+				println("failed sending dirty")
 				return errors.Wrap(err, "send dirty message")
 			}
 		case isGUIShowing := <-c.Session.GUIShowing():

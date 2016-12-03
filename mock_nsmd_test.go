@@ -36,8 +36,7 @@ type mockNsmd struct {
 	openErr  chan Error
 	saveErr  chan Error
 
-	dirtyChan      chan struct{}
-	cleanChan      chan struct{}
+	dirtyChan      chan bool
 	progressChan   chan float32
 	guiShowingChan chan bool
 }
@@ -58,8 +57,7 @@ func newMockNsmd(t *testing.T, config mockNsmdConfig) *mockNsmd {
 		openErr:  make(chan Error),
 		saveErr:  make(chan Error),
 
-		dirtyChan:      make(chan struct{}),
-		cleanChan:      make(chan struct{}),
+		dirtyChan:      make(chan bool),
 		progressChan:   make(chan float32),
 		guiShowingChan: make(chan bool),
 	}
@@ -123,7 +121,7 @@ func (m *mockNsmd) SaveSession(msg osc.Message) osc.Message {
 	return m.serverToClient("save", m.saveChan, msg)
 }
 
-// SessionLoaded triggers a session_is_loaded message.
+// SessionLoaded triggers a session_is_loaded server to client message.
 func (m *mockNsmd) SessionLoaded() {
 	<-m.announceAcked
 
@@ -132,7 +130,7 @@ func (m *mockNsmd) SessionLoaded() {
 	}
 }
 
-// HideOptionalGUI triggers a hide_optional_gui message.
+// HideOptionalGUI triggers a hide_optional_gui server to client message.
 func (m *mockNsmd) HideOptionalGUI() {
 	<-m.announceAcked
 
@@ -141,7 +139,7 @@ func (m *mockNsmd) HideOptionalGUI() {
 	}
 }
 
-// ShowOptionalGUI triggers a show_optional_gui message.
+// ShowOptionalGUI triggers a show_optional_gui server to client message.
 func (m *mockNsmd) ShowOptionalGUI() {
 	<-m.announceAcked
 
@@ -229,15 +227,19 @@ func (m *mockNsmd) dispatcher() osc.Dispatcher {
 		AddressError:          m.ErrorHandler,
 
 		AddressClientGUIHidden: func(msg osc.Message) error {
-			// TODO: block
-			select {
-			default:
-			case m.guiShowingChan <- false:
-			}
+			m.guiShowingChan <- false
 			return nil
 		},
 		AddressClientGUIShowing: func(msg osc.Message) error {
 			m.guiShowingChan <- true
+			return nil
+		},
+		AddressClientIsDirty: func(msg osc.Message) error {
+			m.dirtyChan <- true
+			return nil
+		},
+		AddressClientIsClean: func(msg osc.Message) error {
+			m.dirtyChan <- false
 			return nil
 		},
 	}
@@ -309,10 +311,18 @@ type mockSession struct {
 	open mockReply
 	save mockReply
 
-	// Note that client code needs to initialize these.
+	// Note that client code needs to initialize the channels below.
+
+	// Server to client requests.
 	loadedChan  chan struct{}
 	showGuiChan chan bool
 
+	// Client to server informational messages.
+	showingGuiChan chan bool
+	dirtyChan      chan bool
+	progressChan   chan float32
+
+	// Extra osc methods to add to the client.
 	methods osc.Dispatcher
 }
 
@@ -335,6 +345,18 @@ func (m *mockSession) ShowGUI(show bool) error {
 	return nil
 }
 
+func (m *mockSession) Dirty() chan bool {
+	return m.dirtyChan
+}
+
+func (m *mockSession) GUIShowing() chan bool {
+	return m.showingGuiChan
+}
+
+func (m *mockSession) Progress() chan float32 {
+	return m.progressChan
+}
+
 func (m *mockSession) Methods() osc.Dispatcher {
 	return m.methods
 }
@@ -342,8 +364,36 @@ func (m *mockSession) Methods() osc.Dispatcher {
 // mockSendErr provides an osc.Conn that always returns an error from it's Send method.
 type mockSendErr struct {
 	osc.Conn
+
+	// attempt will be the send that will fail. The first attempt is attempt 0.
+	failOnAttempt int
+	currAttempt   int
 }
 
-func (m mockSendErr) Send(p osc.Packet) error {
-	return errors.New("oops")
+func (m *mockSendErr) Send(p osc.Packet) error {
+	if m.currAttempt == m.failOnAttempt {
+		return errors.New("oops")
+	}
+	m.currAttempt++
+	return nil
+}
+
+// clientFailSend returns a conn that fails on the specified Send attempt.
+func clientFailSend(t *testing.T, config ClientConfig, failOnAttempt int) *Client {
+	raddr, err := net.ResolveUDPAddr("udp", "example.com:8000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := osc.DialUDP("udp", nil, raddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &Client{
+		Conn: &mockSendErr{
+			Conn:          conn,
+			failOnAttempt: failOnAttempt,
+		},
+		ClientConfig: config,
+	}
+	return c
 }

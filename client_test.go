@@ -10,12 +10,13 @@ import (
 
 func testConfig() ClientConfig {
 	return ClientConfig{
-		Name:         "test_client",
-		Capabilities: Capabilities{"switch", "progress"},
-		Major:        1,
-		Minor:        2,
-		PID:          os.Getpid(),
-		Session:      &mockSession{},
+		Name:                 "test_client",
+		Capabilities:         Capabilities{"switch", "progress"},
+		Major:                1,
+		Minor:                2,
+		PID:                  os.Getpid(),
+		Session:              &mockSession{},
+		WaitForAnnounceReply: true,
 	}
 }
 
@@ -58,13 +59,14 @@ func TestClientAnnounceTimeout(t *testing.T) {
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
 	_, err := NewClient(ClientConfig{
-		Name:         "test_client",
-		Capabilities: Capabilities{"switch", "progress"},
-		Major:        1,
-		Minor:        2,
-		PID:          os.Getpid(),
-		Session:      &mockSession{},
-		Timeout:      10 * time.Millisecond,
+		Name:                 "test_client",
+		Capabilities:         Capabilities{"switch", "progress"},
+		Major:                1,
+		Minor:                2,
+		PID:                  os.Getpid(),
+		Session:              &mockSession{},
+		Timeout:              10 * time.Millisecond,
+		WaitForAnnounceReply: true,
 	})
 	if err == nil {
 		t.Fatal("expected error, got nil")

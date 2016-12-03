@@ -1,7 +1,6 @@
 package nsm
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -27,14 +26,9 @@ func TestClientSession(t *testing.T) {
 	)
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	c, err := NewClient(ClientConfig{
-		Name:         "test_client",
-		Capabilities: Capabilities{"switch", "progress"},
-		Major:        1,
-		Minor:        2,
-		PID:          os.Getpid(),
-		Session:      session,
-	})
+	config := testConfig()
+	config.Session = session
+	c, err := NewClient(config)
 	if err != nil {
 		t.Fatal(err)
 	}

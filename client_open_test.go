@@ -1,7 +1,6 @@
 package nsm
 
 import (
-	"os"
 	"testing"
 
 	"github.com/scgolang/osc"
@@ -12,16 +11,11 @@ func TestClientOpenReplyMissingArguments(t *testing.T) {
 	nsmd := newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	c, err := NewClient(ClientConfig{
-		Name:         "test_client",
-		Capabilities: Capabilities{"switch", "progress"},
-		Major:        1,
-		Minor:        2,
-		PID:          os.Getpid(),
-		Session: &mockSession{
-			open: mockReply{Message: "session started"},
-		},
-	})
+	config := testConfig()
+	config.Session = &mockSession{
+		open: mockReply{Message: "session started"},
+	}
+	c, err := NewClient(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,18 +53,13 @@ func TestClientOpenReplyError(t *testing.T) {
 	nsmd := newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	c, err := NewClient(ClientConfig{
-		Name:         "test_client",
-		Capabilities: Capabilities{"switch", "progress"},
-		Major:        1,
-		Minor:        2,
-		PID:          os.Getpid(),
-		Session: &mockSession{
-			open: mockReply{
-				Err: NewError(ErrCreateFailed, "could not create new session"),
-			},
+	config := testConfig()
+	config.Session = &mockSession{
+		open: mockReply{
+			Err: NewError(ErrCreateFailed, "could not create new session"),
 		},
-	})
+	}
+	c, err := NewClient(config)
 	if err != nil {
 		t.Fatal(err)
 	}
