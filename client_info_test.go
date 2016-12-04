@@ -147,3 +147,151 @@ func TestClientGuiShowingFailSend(t *testing.T) {
 		}
 	}
 }
+
+func TestClientProgress(t *testing.T) {
+	const val = float32(0.2323458)
+
+	// mockNsmd sets an environment variable to point the client to it's listening address
+	nsmd := newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
+	defer func() { _ = nsmd.Close() }() // Best effort.
+
+	var (
+		config       = testConfig()
+		progressChan = make(chan float32)
+	)
+	config.Session = &mockSession{progressChan: progressChan}
+
+	if _, err := NewClient(context.Background(), config); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout")
+	case progressChan <- val:
+	}
+	select {
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout")
+	case x := <-nsmd.progressChan:
+		if expected, got := val, x; expected != got {
+			t.Fatalf("expected %f, got %f", expected, got)
+		}
+	}
+}
+
+func TestClientProgressFailSend(t *testing.T) {
+	const val = float32(0.2323458)
+
+	var (
+		config       = testConfig()
+		progressChan = make(chan float32)
+	)
+	config.NsmURL = "osc.udp://127.0.0.1:55555"
+	config.Session = &mockSession{progressChan: progressChan}
+	config.WaitForAnnounceReply = false
+
+	c := clientFailSend(context.Background(), t, config, 1)
+
+	if err := c.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Setup a channel for the error from c.Wait
+	errChan := make(chan error)
+	go func() {
+		errChan <- c.Wait()
+	}()
+
+	// Signal that the client has unsaved changes.
+	select {
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout")
+	case progressChan <- val:
+	}
+
+	// Receive an error on the c.Wait channel.
+	select {
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout")
+	case err := <-errChan:
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if expected, got := `send progress message: oops`, err.Error(); expected != got {
+			t.Fatalf("expected %s, got %s", expected, got)
+		}
+	}
+}
+
+func TestClientStatus(t *testing.T) {
+	// mockNsmd sets an environment variable to point the client to it's listening address
+	nsmd := newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
+	defer func() { _ = nsmd.Close() }() // Best effort.
+
+	var (
+		config     = testConfig()
+		statusChan = make(chan ClientStatus)
+		val        = ClientStatus{Priority: PriorityHigh, Message: "bork"}
+	)
+	config.Session = &mockSession{statusChan: statusChan}
+
+	if _, err := NewClient(context.Background(), config); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout")
+	case statusChan <- val:
+	}
+	select {
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout")
+	case status := <-nsmd.statusChan:
+		if expected, got := val, status; !expected.Equal(got) {
+			t.Fatalf("expected %f, got %f", expected, got)
+		}
+	}
+}
+
+func TestClientStatusFailSend(t *testing.T) {
+	var (
+		config     = testConfig()
+		statusChan = make(chan ClientStatus)
+		val        = ClientStatus{Priority: PriorityHigh, Message: "bork"}
+	)
+	config.NsmURL = "osc.udp://127.0.0.1:55555"
+	config.Session = &mockSession{statusChan: statusChan}
+	config.WaitForAnnounceReply = false
+
+	c := clientFailSend(context.Background(), t, config, 1)
+
+	if err := c.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Setup a channel for the error from c.Wait
+	errChan := make(chan error)
+	go func() {
+		errChan <- c.Wait()
+	}()
+
+	// Signal that the client has unsaved changes.
+	select {
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout")
+	case statusChan <- val:
+	}
+
+	// Receive an error on the c.Wait channel.
+	select {
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout")
+	case err := <-errChan:
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if expected, got := `send client status message: oops`, err.Error(); expected != got {
+			t.Fatalf("expected %s, got %s", expected, got)
+		}
+	}
+}

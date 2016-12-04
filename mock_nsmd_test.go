@@ -38,8 +38,9 @@ type mockNsmd struct {
 	saveErr  chan Error
 
 	dirtyChan      chan bool
-	progressChan   chan float32
 	guiShowingChan chan bool
+	progressChan   chan float32
+	statusChan     chan ClientStatus
 }
 
 // newMockNsmd creates a new mock nsmd server.
@@ -59,8 +60,9 @@ func newMockNsmd(t *testing.T, config mockNsmdConfig) *mockNsmd {
 		saveErr:  make(chan Error),
 
 		dirtyChan:      make(chan bool),
-		progressChan:   make(chan float32),
 		guiShowingChan: make(chan bool),
+		progressChan:   make(chan float32),
+		statusChan:     make(chan ClientStatus),
 	}
 	nsmd.defaults()
 	nsmd.initialize()
@@ -223,9 +225,11 @@ func (m *mockNsmd) startOSC() error {
 
 func (m *mockNsmd) dispatcher() osc.Dispatcher {
 	return osc.Dispatcher{
-		AddressServerAnnounce: m.AnnounceHandler,
-		AddressReply:          m.ReplyHandler,
+		AddressClientProgress: m.ProgressHandler,
+		AddressClientStatus:   m.ClientStatusHandler,
 		AddressError:          m.ErrorHandler,
+		AddressReply:          m.ReplyHandler,
+		AddressServerAnnounce: m.AnnounceHandler,
 
 		AddressClientGUIHidden: func(msg osc.Message) error {
 			m.guiShowingChan <- false
@@ -258,20 +262,19 @@ func (m *mockNsmd) AnnounceHandler(msg osc.Message) error {
 	return nil
 }
 
-func (m *mockNsmd) ReplyHandler(msg osc.Message) error {
-	if len(msg.Arguments) < 1 {
-		return errors.New("/reply must provide the address being replied to")
+func (m *mockNsmd) ClientStatusHandler(msg osc.Message) error {
+	if len(msg.Arguments) != 2 {
+		return errors.New(AddressClientStatus + " should have exactly two arguments")
 	}
-	addr, err := msg.Arguments[0].ReadString()
+	priority, err := msg.Arguments[0].ReadInt32()
 	if err != nil {
-		return errors.Wrap(err, "expected first argument to be a string")
+		return errors.Wrap(err, "could not read priority from "+AddressClientStatus)
 	}
-	switch addr {
-	case AddressClientOpen:
-		m.openChan <- msg
-	case AddressClientSave:
-		m.saveChan <- msg
+	statusMsg, err := msg.Arguments[1].ReadString()
+	if err != nil {
+		return errors.Wrap(err, "could not read status message from "+AddressClientStatus)
 	}
+	m.statusChan <- ClientStatus{Priority: int(priority), Message: statusMsg}
 	return nil
 }
 
@@ -301,6 +304,35 @@ func (m *mockNsmd) ErrorHandler(msg osc.Message) error {
 	return nil
 }
 
+func (m *mockNsmd) ProgressHandler(msg osc.Message) error {
+	if len(msg.Arguments) != 1 {
+		return errors.New(AddressClientProgress + " should have exactly one argument")
+	}
+	x, err := msg.Arguments[0].ReadFloat32()
+	if err != nil {
+		return errors.Wrap(err, "read first argument in "+AddressClientProgress+" message")
+	}
+	m.progressChan <- x
+	return nil
+}
+
+func (m *mockNsmd) ReplyHandler(msg osc.Message) error {
+	if len(msg.Arguments) < 1 {
+		return errors.New("/reply must provide the address being replied to")
+	}
+	addr, err := msg.Arguments[0].ReadString()
+	if err != nil {
+		return errors.Wrap(err, "expected first argument to be a string")
+	}
+	switch addr {
+	case AddressClientOpen:
+		m.openChan <- msg
+	case AddressClientSave:
+		m.saveChan <- msg
+	}
+	return nil
+}
+
 type mockReply struct {
 	Message string
 	Err     Error
@@ -319,9 +351,10 @@ type mockSession struct {
 	showGuiChan chan bool
 
 	// Client to server informational messages.
-	showingGuiChan chan bool
 	dirtyChan      chan bool
 	progressChan   chan float32
+	showingGuiChan chan bool
+	statusChan     chan ClientStatus
 
 	// Extra osc methods to add to the client.
 	methods osc.Dispatcher
@@ -356,6 +389,10 @@ func (m *mockSession) GUIShowing() chan bool {
 
 func (m *mockSession) Progress() chan float32 {
 	return m.progressChan
+}
+
+func (m *mockSession) ClientStatus() chan ClientStatus {
+	return m.statusChan
 }
 
 func (m *mockSession) Methods() osc.Dispatcher {
