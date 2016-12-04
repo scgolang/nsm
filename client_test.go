@@ -29,6 +29,12 @@ func newClient(t *testing.T, config ClientConfig) *Client {
 	return c
 }
 
+func TestNewClientErrNilSession(t *testing.T) {
+	if _, err := NewClient(context.Background(), ClientConfig{}); err != ErrNilSession {
+		t.Fatalf("expected ErrNilSession, got %+v", err)
+	}
+}
+
 func TestClientAnnounce(t *testing.T) {
 	// mockNsmd sets an environment variable to point the client to it's listening address
 	nsmd := newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
@@ -156,6 +162,32 @@ func TestClientReplyFirstArgumentWrongAddress(t *testing.T) {
 	} else {
 		if expected, got := `initialize client: announce app: handle announce reply: expected 4 arguments in announce reply, got 1`, err.Error(); expected != got {
 			t.Fatalf("expected %s, got %s", expected, got)
+		}
+	}
+}
+
+func TestClientContextTimeout(t *testing.T) {
+	// mockNsmd sets an environment variable to point the client to it's listening address
+	nsmd := newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
+	defer func() { _ = nsmd.Close() }() // Best effort.
+
+	ctx, _ := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	c, err := NewClient(ctx, testConfig())
+	if err != nil {
+		t.Fatal("expected error, got nil")
+	}
+	defer func() { _ = c.Close() }() // Best effort.
+
+	errChan := make(chan error)
+	go func() {
+		errChan <- c.Wait()
+	}()
+	select {
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout")
+	case err := <-errChan:
+		if err != context.DeadlineExceeded {
+			t.Fatalf("expected context.DeadlineExceeded, got %+v", err)
 		}
 	}
 }

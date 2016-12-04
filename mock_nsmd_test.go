@@ -1,6 +1,7 @@
 package nsm
 
 import (
+	"context"
 	"net"
 	"os"
 	"strings"
@@ -379,21 +380,24 @@ func (m *mockSendErr) Send(p osc.Packet) error {
 }
 
 // clientFailSend returns a conn that fails on the specified Send attempt.
-func clientFailSend(t *testing.T, config ClientConfig, failOnAttempt int) *Client {
+func clientFailSend(ctx context.Context, t *testing.T, config ClientConfig, failOnAttempt int) *Client {
+	g, gctx := errgroup.WithContext(ctx)
 	raddr, err := net.ResolveUDPAddr("udp", "example.com:8000")
 	if err != nil {
 		t.Fatal(err)
 	}
-	conn, err := osc.DialUDP("udp", nil, raddr)
+	conn, err := osc.DialUDPContext(gctx, "udp", nil, raddr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	c := &Client{
+		Group: *g,
 		Conn: &mockSendErr{
 			Conn:          conn,
 			failOnAttempt: failOnAttempt,
 		},
 		ClientConfig: config,
+		ctx:          gctx,
 	}
 	return c
 }

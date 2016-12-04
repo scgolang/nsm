@@ -161,7 +161,7 @@ func TestClientAnnounceReplyFourthArgumentWrongType(t *testing.T) {
 }
 
 func TestClientAnnounceSendError(t *testing.T) {
-	c := clientFailSend(t, testConfig(), 0)
+	c := clientFailSend(context.Background(), t, testConfig(), 0)
 	if err := c.Announce(); err == nil {
 		t.Fatal("expected error, got nil")
 	}

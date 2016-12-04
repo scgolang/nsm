@@ -98,12 +98,14 @@ func NewClient(ctx context.Context, config ClientConfig) (*Client, error) {
 	if config.Timeout == time.Duration(0) {
 		config.Timeout = DefaultTimeout
 	}
+	g, gctx := errgroup.WithContext(ctx)
 	// Create the client.
 	c := &Client{
+		Group:        *g,
 		ClientConfig: config,
 		ReplyChan:    make(chan osc.Message),
 		closedChan:   make(chan struct{}),
-		ctx:          ctx,
+		ctx:          gctx,
 	}
 	c.Defaults()
 
@@ -115,12 +117,6 @@ func NewClient(ctx context.Context, config ClientConfig) (*Client, error) {
 
 // Initialize initializes the client.
 func (c *Client) Initialize() error {
-	if c.closedChan == nil {
-		c.closedChan = make(chan struct{})
-	}
-	if c.ReplyChan == nil {
-		c.ReplyChan = make(chan osc.Message)
-	}
 	// Get connection.
 	if err := c.DialUDP(c.ListenAddr); err != nil {
 		return errors.Wrap(err, "dial udp")
@@ -149,7 +145,7 @@ func (c *Client) Defaults() {
 
 // DialUDP initializes the connection to non session manager.
 func (c *Client) DialUDP(localAddr string) error {
-	// Tests will sometimes initialize a conn without this method that does naughty things.
+	// Tests sometimes initialize their own Conn that does naughty things.
 	if c.Conn != nil {
 		return nil
 	}
@@ -179,7 +175,7 @@ func (c *Client) DialUDP(localAddr string) error {
 	if err != nil {
 		return errors.Wrap(err, "resolve udp listening address")
 	}
-	conn, _ := osc.DialUDP(c.DialNetwork, laddr, raddr) // Never fails
+	conn, _ := osc.DialUDPContext(c.ctx, c.DialNetwork, laddr, raddr) // Never fails
 	c.Conn = conn
 
 	return nil
