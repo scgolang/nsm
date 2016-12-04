@@ -171,12 +171,13 @@ func TestClientContextTimeout(t *testing.T) {
 	nsmd := newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	ctx, _ := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	c, err := NewClient(ctx, testConfig())
 	if err != nil {
 		t.Fatal("expected error, got nil")
 	}
 	defer func() { _ = c.Close() }() // Best effort.
+	defer cancel()
 
 	errChan := make(chan error)
 	go func() {

@@ -79,10 +79,10 @@ type ClientConfig struct {
 type Client struct {
 	ClientConfig
 	osc.Conn
-	errgroup.Group
 
 	ReplyChan chan osc.Message
 
+	group      *errgroup.Group
 	ctx        context.Context
 	closedChan chan struct{}
 }
@@ -99,12 +99,13 @@ func NewClient(ctx context.Context, config ClientConfig) (*Client, error) {
 		config.Timeout = DefaultTimeout
 	}
 	g, gctx := errgroup.WithContext(ctx)
+
 	// Create the client.
 	c := &Client{
-		Group:        *g,
 		ClientConfig: config,
 		ReplyChan:    make(chan osc.Message),
 		closedChan:   make(chan struct{}),
+		group:        g,
 		ctx:          gctx,
 	}
 	c.Defaults()
@@ -185,6 +186,16 @@ func (c *Client) DialUDP(localAddr string) error {
 func (c *Client) StartOSC() {
 	c.Go(c.serveOSC)
 	c.Go(c.handleClientInfo)
+}
+
+// Go runs a goroutine as part of an errgroup.Group
+func (c *Client) Go(f func() error) {
+	c.group.Go(f)
+}
+
+// Wait waits for all the goroutines in an errgroup.Group to finish
+func (c *Client) Wait() error {
+	return c.group.Wait()
 }
 
 // Close closes the nsm client.

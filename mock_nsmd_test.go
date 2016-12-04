@@ -391,12 +391,12 @@ func clientFailSend(ctx context.Context, t *testing.T, config ClientConfig, fail
 		t.Fatal(err)
 	}
 	c := &Client{
-		Group: *g,
 		Conn: &mockSendErr{
 			Conn:          conn,
 			failOnAttempt: failOnAttempt,
 		},
 		ClientConfig: config,
+		group:        g,
 		ctx:          gctx,
 	}
 	return c
