@@ -1,7 +1,6 @@
 package nsm
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -222,24 +221,21 @@ func TestClientOpenReplyError(t *testing.T) {
 }
 
 func TestClientOpenSendReplyError(t *testing.T) {
-	t.SkipNow()
-
-	// mockNsmd sets an environment variable to point the client to it's listening address
-	nsmd := newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
+	var (
+		// mockNsmd sets an environment variable to point the client to it's listening address
+		nsmd   = newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
+		config = testConfig()
+	)
 	defer func() { _ = nsmd.Close() }() // Best effort.
 
-	config := testConfig()
 	config.Session = &mockSession{
 		open: mockReply{
 			Err: NewError(ErrCreateFailed, "could not create new session"),
 		},
 	}
-	config.WaitForAnnounceReply = false
+	config.failSend = 2
 
-	c := clientFailSend(context.Background(), t, config, 1)
-	if err := c.Initialize(); err != nil {
-		t.Fatal(err)
-	}
+	c := newClient(t, config)
 	defer func() { _ = c.Close() }() // Best effort.
 
 	if err := nsmd.SendTo(c.LocalAddr(), osc.Message{
@@ -263,6 +259,9 @@ func TestClientOpenSendReplyError(t *testing.T) {
 	case err := <-errChan:
 		if err == nil {
 			t.Fatal("expected an error, got nil")
+		}
+		if expected, got := `error serving udp: dispatch message: could not respond to /nsm/client/open: send error: fail send`, err.Error(); expected != got {
+			t.Fatalf("expeccted %s, got %s", expected, got)
 		}
 	}
 }

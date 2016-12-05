@@ -37,18 +37,17 @@ func TestClientDirty(t *testing.T) {
 
 func TestClientDirtyFailSend(t *testing.T) {
 	var (
+		// mockNsmd sets an environment variable to point the client to it's listening address
+		nsmd      = newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
 		config    = testConfig()
 		dirtyChan = make(chan bool)
 	)
-	config.NsmURL = "osc.udp://127.0.0.1:55555"
+	defer func() { _ = nsmd.Close() }() // Best effort.
+
 	config.Session = &mockSession{dirtyChan: dirtyChan}
-	config.WaitForAnnounceReply = false
+	config.failSend = 2
 
-	c := clientFailSend(context.Background(), t, config, 1)
-
-	if err := c.Initialize(); err != nil {
-		t.Fatal(err)
-	}
+	c := newClient(t, config)
 
 	// Setup a channel for the error from c.Wait
 	errChan := make(chan error)
@@ -71,7 +70,7 @@ func TestClientDirtyFailSend(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if expected, got := `send dirty message: oops`, err.Error(); expected != got {
+		if expected, got := `send dirty message: fail send`, err.Error(); expected != got {
 			t.Fatalf("expected %s, got %s", expected, got)
 		}
 	}
@@ -108,18 +107,17 @@ func TestClientGuiShowing(t *testing.T) {
 
 func TestClientGuiShowingFailSend(t *testing.T) {
 	var (
+		// mockNsmd sets an environment variable to point the client to it's listening address
+		nsmd           = newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
 		config         = testConfig()
 		showingGuiChan = make(chan bool)
 	)
-	config.NsmURL = "osc.udp://127.0.0.1:55555"
+	defer func() { _ = nsmd.Close() }() // Best effort.
+
 	config.Session = &mockSession{showingGuiChan: showingGuiChan}
-	config.WaitForAnnounceReply = false
+	config.failSend = 2
 
-	c := clientFailSend(context.Background(), t, config, 1)
-
-	if err := c.Initialize(); err != nil {
-		t.Fatal(err)
-	}
+	c := newClient(t, config)
 
 	// Setup a channel for the error from c.Wait
 	errChan := make(chan error)
@@ -142,7 +140,7 @@ func TestClientGuiShowingFailSend(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if expected, got := `send gui-showing message: oops`, err.Error(); expected != got {
+		if expected, got := `send gui-showing message: fail send`, err.Error(); expected != got {
 			t.Fatalf("expected %s, got %s", expected, got)
 		}
 	}
@@ -183,18 +181,17 @@ func TestClientProgressFailSend(t *testing.T) {
 	const val = float32(0.2323458)
 
 	var (
+		// mockNsmd sets an environment variable to point the client to it's listening address
+		nsmd         = newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
 		config       = testConfig()
 		progressChan = make(chan float32)
 	)
-	config.NsmURL = "osc.udp://127.0.0.1:55555"
+	defer func() { _ = nsmd.Close() }() // Best effort.
+
 	config.Session = &mockSession{progressChan: progressChan}
-	config.WaitForAnnounceReply = false
+	config.failSend = 2
 
-	c := clientFailSend(context.Background(), t, config, 1)
-
-	if err := c.Initialize(); err != nil {
-		t.Fatal(err)
-	}
+	c := newClient(t, config)
 
 	// Setup a channel for the error from c.Wait
 	errChan := make(chan error)
@@ -217,7 +214,7 @@ func TestClientProgressFailSend(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if expected, got := `send progress message: oops`, err.Error(); expected != got {
+		if expected, got := `send progress message: fail send`, err.Error(); expected != got {
 			t.Fatalf("expected %s, got %s", expected, got)
 		}
 	}
@@ -255,19 +252,18 @@ func TestClientStatus(t *testing.T) {
 
 func TestClientStatusFailSend(t *testing.T) {
 	var (
+		// mockNsmd sets an environment variable to point the client to it's listening address
+		nsmd       = newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
 		config     = testConfig()
 		statusChan = make(chan ClientStatus)
 		val        = ClientStatus{Priority: PriorityHigh, Message: "bork"}
 	)
-	config.NsmURL = "osc.udp://127.0.0.1:55555"
+	defer func() { _ = nsmd.Close() }() // Best effort.
+
 	config.Session = &mockSession{statusChan: statusChan}
-	config.WaitForAnnounceReply = false
+	config.failSend = 2
 
-	c := clientFailSend(context.Background(), t, config, 1)
-
-	if err := c.Initialize(); err != nil {
-		t.Fatal(err)
-	}
+	c := newClient(t, config)
 
 	// Setup a channel for the error from c.Wait
 	errChan := make(chan error)
@@ -290,7 +286,7 @@ func TestClientStatusFailSend(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if expected, got := `send client status message: oops`, err.Error(); expected != got {
+		if expected, got := `send client status message: fail send`, err.Error(); expected != got {
 			t.Fatalf("expected %s, got %s", expected, got)
 		}
 	}

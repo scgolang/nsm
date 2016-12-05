@@ -73,6 +73,8 @@ type ClientConfig struct {
 	DialNetwork          string
 	NsmURL               string
 	WaitForAnnounceReply bool
+
+	failSend int // Trigger a failed Send for a particular call. The first send is 1.
 }
 
 // Client represents an nsm client.
@@ -85,6 +87,8 @@ type Client struct {
 	group      *errgroup.Group
 	ctx        context.Context
 	closedChan chan struct{}
+
+	currSend int
 }
 
 // NewClient creates a new nsm-enabled application.
@@ -146,10 +150,6 @@ func (c *Client) Defaults() {
 
 // DialUDP initializes the connection to non session manager.
 func (c *Client) DialUDP(localAddr string) error {
-	// Tests sometimes initialize their own Conn that does naughty things.
-	if c.Conn != nil {
-		return nil
-	}
 	// Allow client configuration to override the env var.
 	var nsmURL string
 	if c.NsmURL == "" {
@@ -196,6 +196,18 @@ func (c *Client) Go(f func() error) {
 // Wait waits for all the goroutines in an errgroup.Group to finish
 func (c *Client) Wait() error {
 	return c.group.Wait()
+}
+
+// Send sends an osc message.
+func (c *Client) Send(msg osc.Message) error {
+	if c.failSend == 0 {
+		return c.Conn.Send(msg)
+	}
+	c.currSend++
+	if c.currSend == c.failSend {
+		return errors.New("fail send")
+	}
+	return c.Conn.Send(msg)
 }
 
 // Close closes the nsm client.

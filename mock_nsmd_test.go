@@ -1,7 +1,6 @@
 package nsm
 
 import (
-	"context"
 	"net"
 	"os"
 	"strings"
@@ -397,46 +396,4 @@ func (m *mockSession) ClientStatus() chan ClientStatus {
 
 func (m *mockSession) Methods() osc.Dispatcher {
 	return m.methods
-}
-
-// mockSendErr provides an osc.Conn that always returns an error from it's Send method.
-type mockSendErr struct {
-	osc.Conn
-
-	// attempt will be the send that will fail. The first attempt is attempt 0.
-	failOnAttempt int
-	currAttempt   int
-}
-
-func (m *mockSendErr) Send(p osc.Packet) error {
-	if m.currAttempt == m.failOnAttempt {
-		return errors.New("oops")
-	}
-	m.currAttempt++
-	return nil
-}
-
-// clientFailSend returns a conn that fails on the specified Send attempt.
-func clientFailSend(ctx context.Context, t *testing.T, config ClientConfig, failOnAttempt int) *Client {
-	g, gctx := errgroup.WithContext(ctx)
-	raddr, err := net.ResolveUDPAddr("udp", "example.com:8000")
-	if err != nil {
-		t.Fatal(err)
-	}
-	conn, err := osc.DialUDPContext(gctx, "udp", nil, raddr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	c := &Client{
-		Conn: &mockSendErr{
-			Conn:          conn,
-			failOnAttempt: failOnAttempt,
-		},
-		ReplyChan:    make(chan osc.Message),
-		closedChan:   make(chan struct{}),
-		ClientConfig: config,
-		group:        g,
-		ctx:          gctx,
-	}
-	return c
 }

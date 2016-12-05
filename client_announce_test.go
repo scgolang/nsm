@@ -161,8 +161,20 @@ func TestClientAnnounceReplyFourthArgumentWrongType(t *testing.T) {
 }
 
 func TestClientAnnounceSendError(t *testing.T) {
-	c := clientFailSend(context.Background(), t, testConfig(), 0)
-	if err := c.Announce(); err == nil {
+	var (
+		// mockNsmd sets an environment variable to point the client to it's listening address
+		nsmd   = newMockNsmd(t, mockNsmdConfig{listenAddr: "127.0.0.1:0"})
+		config = testConfig()
+	)
+	defer func() { _ = nsmd.Close() }() // Best effort.
+
+	config.failSend = 1
+
+	_, err := NewClient(context.Background(), config)
+	if err == nil {
 		t.Fatal("expected error, got nil")
+	}
+	if expected, got := `initialize client: announce app: send announce message: fail send`, err.Error(); expected != got {
+		t.Fatalf("expected %s, got %s", expected, got)
 	}
 }
