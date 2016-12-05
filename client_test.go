@@ -17,6 +17,7 @@ func testConfig() ClientConfig {
 		Minor:                2,
 		PID:                  os.Getpid(),
 		Session:              &mockSession{},
+		Timeout:              DefaultTimeout,
 		WaitForAnnounceReply: true,
 	}
 }

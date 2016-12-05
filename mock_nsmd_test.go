@@ -432,6 +432,8 @@ func clientFailSend(ctx context.Context, t *testing.T, config ClientConfig, fail
 			Conn:          conn,
 			failOnAttempt: failOnAttempt,
 		},
+		ReplyChan:    make(chan osc.Message),
+		closedChan:   make(chan struct{}),
 		ClientConfig: config,
 		group:        g,
 		ctx:          gctx,
