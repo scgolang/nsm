@@ -40,10 +40,6 @@ const (
 	AddressServerSave            = "/nsm/server/save"
 )
 
-// DoneString is a string that is returned for replies (e.g. /nsm/server/list)
-// that return more than one reply, to signal that the replies have ended.
-const DoneString = "NSM_DONE"
-
 // NsmURL is the name of the NSM url environment variable.
 var NsmURL = "NSM_URL"
 
