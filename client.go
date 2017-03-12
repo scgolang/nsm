@@ -219,7 +219,8 @@ func (c *Client) Close() error {
 
 // serveOSC listens for incoming messages from Non Session Manager.
 func (c *Client) serveOSC() error {
-	return c.Serve(c.dispatcher())
+	// Arbitrary number of worker routines.
+	return c.Serve(8, c.dispatcher())
 }
 
 // dispatcher returns the osc Dispatcher for the nsm client.
